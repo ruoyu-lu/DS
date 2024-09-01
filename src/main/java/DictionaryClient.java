@@ -4,11 +4,9 @@
  * inputs, and sending requests to the server over the network. It also handles receiving responses from
  * the server and displaying them to the user.
  */
-
 import java.io.*;
 import java.net.*;
 import javax.swing.*;
-
 import com.google.gson.Gson;
 
 public class DictionaryClient {
@@ -19,11 +17,11 @@ public class DictionaryClient {
 
     public DictionaryClient(String host, int port) throws IOException {
         connectToServer(host, port);
-        UserInterface gui = new UserInterface(this);
+        new UserInterface(this);
         this.gson = new Gson();
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
                 new DictionaryClient(Constant.SERVER_ADDRESS, Constant.SERVER_PORT);
@@ -62,16 +60,7 @@ public class DictionaryClient {
     }
 
     private String sendRequest(DictionaryRequest request) throws IOException {
-        String jsonRequest = gson.toJson(request);
-        out.println(jsonRequest);
-        String jsonResponse = in.readLine();
-        DictionaryResponse response = gson.fromJson(jsonResponse, DictionaryResponse.class);
-        return response.getMessage();
-    }
-
-    public void close() throws IOException {
-        if (in != null) in.close();
-        if (out != null) out.close();
-        if (socket != null) socket.close();
+        out.println(gson.toJson(request));
+        return gson.fromJson(in.readLine(), DictionaryResponse.class).getMessage();
     }
 }

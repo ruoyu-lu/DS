@@ -21,20 +21,6 @@ public class ThreadPool {
         executor.execute(task);
     }
 
-    public void startThread(Thread thread) {
-        managedThreads.add(thread);
-        executor.execute(() -> {
-            thread.start();
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } finally {
-                managedThreads.remove(thread);
-            }
-        });
-    }
-
     public void shutdown() {
         for (Thread thread : managedThreads) {
             thread.interrupt();
@@ -57,13 +43,5 @@ public class ThreadPool {
                 Thread.currentThread().interrupt();
             }
         }
-    }
-
-    public boolean isShutdown() {
-        return executor.isShutdown();
-    }
-
-    public boolean isTerminated() {
-        return executor.isTerminated();
     }
 }

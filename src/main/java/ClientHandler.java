@@ -8,7 +8,6 @@
 import java.net.*;
 import java.io.*;
 import java.util.List;
-
 import com.google.gson.Gson;
 
 public class ClientHandler implements Runnable {
@@ -99,7 +98,6 @@ public class ClientHandler implements Runnable {
         if (currentDefinition == null) {
             return "Word not found";
         } else {
-            String newDefinition = currentDefinition + "\n" + request.getDefinition();
             Dictionary.append(request.getWord(), request.getDefinition());
             return "Definition appended successfully";
         }

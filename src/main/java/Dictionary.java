@@ -101,18 +101,4 @@ public class Dictionary {
         }
         return false;
     }
-
-    /**
-     * Get all definitions for a word.
-     *
-     * @param word The word to get definitions for.
-     * @return A string containing all definitions, or null if the word is not found.
-     */
-    public static String getAllDefinitions(String word) {
-        List<String> definitions = dictionary.get(word);
-        if (definitions != null) {
-            return String.join("\n", definitions);
-        }
-        return null;
-    }
 }
