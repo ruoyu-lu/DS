@@ -15,15 +15,16 @@ public class ServerInterface extends JFrame {
     private JLabel requestCountLabel;
     private JScrollPane scrollPane;
     private String fileName;
-    private Dictionary dictionary = new Dictionary(fileName);
+    private Dictionary dictionary;
 
-    public ServerInterface() throws IOException {
+    public ServerInterface(Dictionary dictionary) throws IOException {
+        this.dictionary = dictionary;
         initComponents();
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 try {
-                    dictionary.saveDictionary(fileName);
+                    dictionary.saveDictionary();
                 } catch (IOException ex) {
                     throw new RuntimeException(ex);
                 }
@@ -66,18 +67,6 @@ public class ServerInterface extends JFrame {
     public void updateRequestCount(int count) {
         SwingUtilities.invokeLater(() -> {
             requestCountLabel.setText("Processed Requests: " + count);
-        });
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            ServerInterface gui = null;
-            try {
-                gui = new ServerInterface();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            gui.setVisible(true);
         });
     }
 }

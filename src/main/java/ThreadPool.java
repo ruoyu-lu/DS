@@ -25,7 +25,7 @@ public class ThreadPool {
 
         executor.shutdown();
         try {
-            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+            if (!executor.awaitTermination(Constant.THREAD_TIMEOUT, TimeUnit.SECONDS)) {
                 executor.shutdownNow();
             }
         } catch (InterruptedException ex) {
@@ -35,7 +35,7 @@ public class ThreadPool {
 
         for (Thread thread : managedThreads) {
             try {
-                thread.join(1000); // Wait for 1 second for each thread to finish
+                thread.join(Constant.THREAD_JOIN); // Wait for 1 second for each thread to finish
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

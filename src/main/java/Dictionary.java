@@ -14,26 +14,32 @@ import com.google.gson.reflect.TypeToken;
  */
 public class Dictionary {
     private static ConcurrentHashMap<String, List<String>> dictionary;
-    private String filename;
+    private String fileName;
 
-    public Dictionary(String filename) throws IOException {
+    public Dictionary(String fileName) throws IOException {
         dictionary = new ConcurrentHashMap<>();
-        this.filename = filename;
+        this.fileName = fileName;
     }
 
-    public void loadDictionary(String filename) throws IOException {
+    public void loadDictionary() throws IOException {
         Gson gson = new Gson();
         Type type = new TypeToken<ConcurrentHashMap<String, List<String>>>() {}.getType();
-        try (Reader reader = new FileReader(filename)) {
+        try (Reader reader = new FileReader(fileName)) {
             ConcurrentHashMap<String, List<String>> tempDict = gson.fromJson(reader, type);
             tempDict.forEach((key, value) -> dictionary.put(key.toLowerCase(), value)); // Convert all keys to lower case
         }
+        catch (IOException e) {
+            throw new IOException("Error loading dictionary from file: " + e.getMessage());
+        }
     }
 
-    public void saveDictionary(String filename) throws IOException {
+    public void saveDictionary() throws IOException {
         Gson gson = new Gson();
-        try (Writer writer = new FileWriter(filename)) {
+        try (Writer writer = new FileWriter(fileName)) {
             gson.toJson(dictionary, writer);
+        }
+        catch (IOException e) {
+            throw new IOException("Error saving dictionary to file: " + e.getMessage());
         }
     }
 

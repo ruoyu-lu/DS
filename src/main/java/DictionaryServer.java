@@ -37,12 +37,25 @@ public class DictionaryServer {
         this.processedRequests = new AtomicInteger(0);
     }
 
+    public static void main(String[] args) throws IOException {
+        //args[0] = port, args[1] = fileName
+        DictionaryServer server = new DictionaryServer(Constant.NUMBER_OF_THREADS,args[0],args[1]);
+        ServerInterface gui = new ServerInterface(server.dictionary);
+        server.setGUI(gui);
+        SwingUtilities.invokeLater(() -> gui.setVisible(true));
+        try {
+            server.startServer();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void setGUI(ServerInterface gui) {
         this.gui = gui;
     }
 
     public void startServer() throws IOException {
-        dictionary.loadDictionary(fileName);
+        dictionary.loadDictionary();
         try {
             int portNum = Integer.parseInt(port);
             serverSocket = new ServerSocket(portNum);
@@ -95,19 +108,6 @@ public class DictionaryServer {
         System.out.println(message);
         if (gui != null) {
             gui.appendLog(message);
-        }
-    }
-
-    public static void main(String[] args) throws IOException {
-        //args[0] = port, args[1] = fileName
-        DictionaryServer server = new DictionaryServer(Constant.NUMBER_OF_THREADS,args[0],args[1]);
-        ServerInterface gui = new ServerInterface();
-        server.setGUI(gui);
-        SwingUtilities.invokeLater(() -> gui.setVisible(true));
-        try {
-            server.startServer();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 }
