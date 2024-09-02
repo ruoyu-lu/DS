@@ -1,3 +1,7 @@
+/**
+ * This class contains all the constant values that are used in the program.
+ */
+
 public class Constant {
     public static final String SERVER_ADDRESS = "localhost";
     public static final int SERVER_PORT = 1234;

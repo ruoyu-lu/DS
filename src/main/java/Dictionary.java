@@ -1,10 +1,3 @@
-/**
- * Dictionary:
- * Encapsulates the core data structure managing the dictionary data. This includes functionalities
- * such as searching for entries, adding new entries, deleting entries, and updating them.
- * This class provides various methods that other classes (like ClientHandler) can call to perform
- * specific dictionary operations.
- */
 import java.io.*;
 import java.lang.reflect.Type;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,6 +6,12 @@ import java.util.List;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+/**
+ * A simple dictionary class that stores words and their definitions.
+ * The dictionary is stored as a ConcurrentHashMap, where the key is the word and the value is a list of definitions.
+ * The dictionary can be loaded from a JSON file, saved to a JSON file, queried for a word, added a new word, deleted a word,
+ * appended a new definition to an existing word, and updated a specific definition of a word.
+ */
 public class Dictionary {
     private static ConcurrentHashMap<String, List<String>> dictionary;
 

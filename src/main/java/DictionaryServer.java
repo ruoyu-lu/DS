@@ -1,16 +1,19 @@
-/**
- * DictionaryServer:
- * The main server class, responsible for listening for connection requests from clients over the network.
- * Upon receiving a connection request, it may create a new ClientHandler to manage interactions with
- * that client. It also likely manages loading and maintaining the dictionary data, as well as managing
- * a thread pool to handle concurrent requests efficiently.
- */
 import javax.swing.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * DictionaryServer.java
+ * Server class for the dictionary server.
+ * The server listens for incoming client connections and creates a new ClientHandler thread for each client.
+ * The ClientHandler thread reads the client's request, processes it, and sends a response back to the client.
+ * The server uses a thread pool to manage the ClientHandler threads.
+ * The server also keeps track of the number of connected clients and the number of processed requests.
+ * The server can be started and stopped using the startServer() and stopServer() methods.
+ * The server can be run as a standalone application with a GUI interface or from the command line.
+ */
 public class DictionaryServer {
     private static final int PORT = Constant.SERVER_PORT;
     private final ThreadPool threadPool;

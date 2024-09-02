@@ -1,16 +1,14 @@
-/**
- * UserInterface:
- * Responsible for all the visual and interaction elements of the user interface. This class likely includes
- * creating and managing GUI components such as windows, buttons, text fields, etc. It receives user actions,
- * triggers corresponding events, and provides feedback.
- */
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
-import java.util.Arrays;
 
+/**
+ * UserInterface.java
+ * GUI interface for the dictionary client.
+ * Provides a text field for user input, buttons for adding, querying, deleting, appending, and updating words in the dictionary,
+ * and a display area for showing server responses.
+ */
 public class UserInterface extends JFrame {
     private JTextField inputField;
     private JTextArea displayArea;
@@ -29,7 +27,7 @@ public class UserInterface extends JFrame {
         gbc.insets = new Insets(5, 5, 5, 5);
 
         // Input field
-        inputField = new JTextField(30);
+        inputField = new JTextField(20);
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.gridwidth = 4;

@@ -1,15 +1,12 @@
-/**
- * ClientHandler:
- * Manages the connection and communication with an individual client. This class is
- * responsible for processing client requests, and sending the results back to the client.
- * It may also handle maintaining the socket connection, reading from the
- * input stream, and writing to the output stream.
- */
 import java.net.*;
 import java.io.*;
 import java.util.List;
 import com.google.gson.Gson;
 
+/**
+ * ClientHandler.java
+ * Handles client requests and sends responses to the client.
+ */
 public class ClientHandler implements Runnable {
     private Socket clientSocket;
     private BufferedReader in;

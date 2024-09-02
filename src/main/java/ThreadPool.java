@@ -1,13 +1,10 @@
-/**
- * ThreadPool:
- * Manages the execution of multiple threads. This class typically includes a task queue and a set of worker
- * threads. The ThreadPool is responsible for allocating tasks to threads, monitoring their status, and optimizing
- * resource utilization and task execution efficiency.
- */
 import java.util.concurrent.*;
 import java.util.List;
 import java.util.ArrayList;
 
+/**
+ * A simple thread pool class that manages a pool of threads.
+ */
 public class ThreadPool {
     private final ExecutorService executor;
     private final List<Thread> managedThreads;

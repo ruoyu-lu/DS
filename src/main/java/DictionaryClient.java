@@ -1,14 +1,14 @@
+import java.io.*;
+import java.net.*;
+import javax.swing.*;
+import com.google.gson.Gson;
+
 /**
  * DictionaryClient:
  * The main client class, responsible for initializing the client-side user interface, processing user
  * inputs, and sending requests to the server over the network. It also handles receiving responses from
  * the server and displaying them to the user.
  */
-import java.io.*;
-import java.net.*;
-import javax.swing.*;
-import com.google.gson.Gson;
-
 public class DictionaryClient {
     private BufferedReader in;
     private PrintWriter out;

@@ -1,3 +1,7 @@
+/**
+ * This class is used to represent a dictionary request.
+ * It contains the action, word, old definition, and new definition.
+ */
 public class DictionaryRequest {
     private String action;
     private String word;

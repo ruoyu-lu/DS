@@ -1,14 +1,14 @@
 import javax.swing.*;
 import java.awt.*;
-import javax.swing.text.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
 
-import com.google.gson.Gson;
-
+/**
+ * ServerInterface.java
+ * GUI interface for the dictionary server.
+ * Displays server logs, connected clients, and processed requests.
+ */
 public class ServerInterface extends JFrame {
     private JTextArea logArea;
     private JLabel clientCountLabel;
