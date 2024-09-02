@@ -4,6 +4,8 @@ import java.awt.event.*;
 import java.io.IOException;
 
 /**
+ * Ruoyu Lu
+ * 1466195
  * UserInterface.java
  * GUI interface for the dictionary client.
  * Provides a text field for user input, buttons for adding, querying, deleting, appending, and updating words in the dictionary,

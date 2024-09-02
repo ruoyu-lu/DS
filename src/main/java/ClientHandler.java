@@ -4,6 +4,8 @@ import java.util.List;
 import com.google.gson.Gson;
 
 /**
+ * Ruoyu Lu
+ * 1466195
  * ClientHandler.java
  * Handles client requests and sends responses to the client.
  */

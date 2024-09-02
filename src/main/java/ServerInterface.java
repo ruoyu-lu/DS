@@ -5,6 +5,8 @@ import java.awt.event.WindowEvent;
 import java.io.IOException;
 
 /**
+ * Ruoyu Lu
+ * 1466195
  * ServerInterface.java
  * GUI interface for the dictionary server.
  * Displays server logs, connected clients, and processed requests.

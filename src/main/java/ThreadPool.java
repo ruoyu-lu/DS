@@ -3,6 +3,8 @@ import java.util.List;
 import java.util.ArrayList;
 
 /**
+ * Ruoyu Lu
+ * 1466195
  * A simple thread pool class that manages a pool of threads.
  */
 public class ThreadPool {

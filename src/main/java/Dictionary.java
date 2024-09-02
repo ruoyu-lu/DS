@@ -7,6 +7,8 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 /**
+ * Ruoyu Lu
+ * 1466195
  * A simple dictionary class that stores words and their definitions.
  * The dictionary is stored as a ConcurrentHashMap, where the key is the word and the value is a list of definitions.
  * The dictionary can be loaded from a JSON file, saved to a JSON file, queried for a word, added a new word, deleted a word,

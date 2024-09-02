@@ -1,4 +1,6 @@
 /**
+ * Ruoyu Lu
+ * 1466195
  * This class contains all the constant values that are used in the program.
  */
 

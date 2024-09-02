@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * Ruoyu Lu
+ * 1466195
  * DictionaryServer.java
  * Server class for the dictionary server.
  * The server listens for incoming client connections and creates a new ClientHandler thread for each client.
