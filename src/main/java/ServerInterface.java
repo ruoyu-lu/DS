@@ -14,15 +14,16 @@ public class ServerInterface extends JFrame {
     private JLabel clientCountLabel;
     private JLabel requestCountLabel;
     private JScrollPane scrollPane;
-    private Dictionary dictionary = new Dictionary();
+    private String fileName;
+    private Dictionary dictionary = new Dictionary(fileName);
 
-    public ServerInterface() {
+    public ServerInterface() throws IOException {
         initComponents();
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 try {
-                    dictionary.saveDictionary(Constant.DICTIONARY_FILE);
+                    dictionary.saveDictionary(fileName);
                 } catch (IOException ex) {
                     throw new RuntimeException(ex);
                 }
@@ -70,7 +71,12 @@ public class ServerInterface extends JFrame {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            ServerInterface gui = new ServerInterface();
+            ServerInterface gui = null;
+            try {
+                gui = new ServerInterface();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
             gui.setVisible(true);
         });
     }

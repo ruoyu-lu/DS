@@ -15,8 +15,9 @@ public class DictionaryClient {
     private Socket socket;
     private Gson gson;
 
-    public DictionaryClient(String host, int port) throws IOException {
-        connectToServer(host, port);
+    public DictionaryClient(String host, String port) throws IOException {
+        int portNum = Integer.parseInt(port);
+        connectToServer(host, portNum);
         new UserInterface(this);
         this.gson = new Gson();
     }
@@ -24,7 +25,8 @@ public class DictionaryClient {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-                new DictionaryClient(Constant.SERVER_ADDRESS, Constant.SERVER_PORT);
+                //args[0] = host, args[1] = port
+                new DictionaryClient(args[0], args[1]);
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(null, "Failed to connect to server: " + e.getMessage());
                 System.exit(1);

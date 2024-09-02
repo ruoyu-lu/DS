@@ -15,17 +15,24 @@ import java.util.concurrent.atomic.AtomicInteger;
  * The server can be run as a standalone application with a GUI interface or from the command line.
  */
 public class DictionaryServer {
-    private static final int PORT = Constant.SERVER_PORT;
     private final ThreadPool threadPool;
     private ServerSocket serverSocket;
     private final Dictionary dictionary;
     private ServerInterface gui;
     private AtomicInteger connectedClients;
     private AtomicInteger processedRequests;
+    private final String port;
+    private final String fileName;
 
-    public DictionaryServer(int numberOfThreads) {
+    public DictionaryServer(int numberOfThreads, String port , String fileName) {
         this.threadPool = new ThreadPool(numberOfThreads);
-        this.dictionary = new Dictionary();
+        this.port = port;
+        this.fileName = fileName;
+        try {
+            this.dictionary = new Dictionary(fileName);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         this.connectedClients = new AtomicInteger(0);
         this.processedRequests = new AtomicInteger(0);
     }
@@ -35,16 +42,16 @@ public class DictionaryServer {
     }
 
     public void startServer() throws IOException {
-        dictionary.loadDictionary(Constant.DICTIONARY_FILE);
+        dictionary.loadDictionary(fileName);
         try {
-            serverSocket = new ServerSocket(PORT);
-            log("Server started on port " + PORT);
+            int portNum = Integer.parseInt(port);
+            serverSocket = new ServerSocket(portNum);
+            log("Server started on port " + port);
 
             while (!Thread.currentThread().isInterrupted()) {
                 try {
                     Socket clientSocket = serverSocket.accept();
                     log("Client connected: " + clientSocket.getInetAddress().getHostAddress());
-
                     threadPool.execute(new ClientHandler(clientSocket, dictionary, this));
                     updateConnectedClients(1);
                 } catch (IOException e) {
@@ -52,7 +59,7 @@ public class DictionaryServer {
                 }
             }
         } catch (IOException e) {
-            log("Could not listen on port " + PORT + ": " + e.getMessage());
+            log("Could not listen on port " + port + ": " + e.getMessage());
         } finally {
             stopServer();
         }
@@ -91,8 +98,9 @@ public class DictionaryServer {
         }
     }
 
-    public static void main(String[] args) {
-        DictionaryServer server = new DictionaryServer(Constant.NUMBER_OF_THREADS);
+    public static void main(String[] args) throws IOException {
+        //args[0] = port, args[1] = fileName
+        DictionaryServer server = new DictionaryServer(Constant.NUMBER_OF_THREADS,args[0],args[1]);
         ServerInterface gui = new ServerInterface();
         server.setGUI(gui);
         SwingUtilities.invokeLater(() -> gui.setVisible(true));

@@ -14,9 +14,11 @@ import com.google.gson.reflect.TypeToken;
  */
 public class Dictionary {
     private static ConcurrentHashMap<String, List<String>> dictionary;
+    private String filename;
 
-    public Dictionary() {
+    public Dictionary(String filename) throws IOException {
         dictionary = new ConcurrentHashMap<>();
+        this.filename = filename;
     }
 
     public void loadDictionary(String filename) throws IOException {
