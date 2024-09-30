@@ -45,8 +45,19 @@ public class publisher {
 
     public void showSubscriberCount() throws IOException {
         out.println("SHOW_SUBSCRIBER_COUNT");
-        String response = in.readLine();
-        System.out.println("Subscriber count: " + response);
+        System.out.println("Topics and their subscriber counts:");
+        System.out.println("+----------------------+---------------------------------------+------------------+");
+        System.out.println("|     Topic Name       |                Topic ID               | Subscriber Count |");
+        System.out.println("+----------------------+---------------------------------------+------------------+");
+        
+        String response;
+        while (!(response = in.readLine()).equals("END")) {
+            String[] parts = response.split("\\|");
+            if (parts.length == 3) {
+                System.out.printf("| %-20s | %-32s | %-17s |%n", parts[0], parts[1], parts[2]);
+            }
+        }
+        System.out.println("+----------------------+---------------------------------------+------------------+");
     }
 
     public void deleteTopic(String topicId) throws IOException {

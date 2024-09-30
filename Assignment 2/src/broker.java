@@ -177,9 +177,12 @@ public class broker {
                         StringBuilder counts = new StringBuilder();
                         for (Topic topic : topics.values()) {
                             if (topic.publisherName.equals(publisherName)) {
-                                counts.append(topic.name).append(": ").append(topic.subscribers.size()).append("\n");
+                                counts.append(topic.name).append("|")
+                                      .append(topic.id).append("|")
+                                      .append(topic.subscribers.size()).append("\n");
                             }
                         }
+                        counts.append("END");
                         messageHandler.sendMessage(publisherSockets.get(publisherName), counts.toString());
                         break;
                     case "DELETE_TOPIC":
