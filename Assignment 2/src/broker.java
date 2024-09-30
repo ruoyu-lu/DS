@@ -91,6 +91,19 @@ public class broker {
         Topic topic = topics.get(topicId);
         if (topic != null) {
             topic.subscribers.add(subscriberName);
+            try {
+                Socket subscriberSocket = subscriberSockets.get(subscriberName);
+                messageHandler.sendMessage(subscriberSocket, "SUCCESS|" + topic.name + "|" + topic.publisherName + "|" + topicId);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            try {
+                Socket subscriberSocket = subscriberSockets.get(subscriberName);
+                messageHandler.sendMessage(subscriberSocket, "FAILED|Topic not found");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -190,19 +203,19 @@ public class broker {
                     case "LIST_TOPICS":
                         StringBuilder topicList = new StringBuilder();
                         for (Topic topic : topics.values()) {
-                            topicList.append(topic.id).append(": ").append(topic.name).append(" (").append(topic.publisherName).append(")\n");
+                            topicList.append(topic.id).append("|")
+                                     .append(topic.name).append("|")
+                                     .append(topic.publisherName).append("\n");
                         }
                         messageHandler.sendMessage(subscriberSockets.get(subscriberName), topicList.toString() + "END");
                         break;
                     case "SUBSCRIBE_TOPIC":
                         String subTopicId = reader.readLine();
                         subscribeTopic(subTopicId, subscriberName);
-                        messageHandler.sendMessage(subscriberSockets.get(subscriberName), "SUCCESS");
                         break;
                     case "UNSUBSCRIBE_TOPIC":
                         String unsubTopicId = reader.readLine();
                         unsubscribeTopic(unsubTopicId, subscriberName);
-                        messageHandler.sendMessage(subscriberSockets.get(subscriberName), "SUCCESS");
                         break;
                 }
             }

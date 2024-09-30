@@ -12,6 +12,7 @@ public class publisher {
     private Socket brokerSocket;
     private PrintWriter out;
     private BufferedReader in;
+    private static final int MAX_MESSAGE_LENGTH = 100;
 
     public publisher(String name, String brokerAddress, int brokerPort) throws IOException {
         this.name = name;
@@ -31,6 +32,10 @@ public class publisher {
     }
 
     public void publishMessage(String topicId, String message) throws IOException {
+        if (message.length() > MAX_MESSAGE_LENGTH) {
+            System.out.println("Message is too long. Maximum length is " + MAX_MESSAGE_LENGTH + " characters.");
+            return;
+        }
         out.println("PUBLISH_MESSAGE");
         out.println(topicId);
         out.println(message);
@@ -76,45 +81,51 @@ public class publisher {
 
     private void startConsole() {
         Scanner scanner = new Scanner(System.in);
-        while (true) {
-            System.out.println("\n1. Create Topic");
-            System.out.println("2. Publish Message");
-            System.out.println("3. Show Subscriber Count");
-            System.out.println("4. Delete Topic");
-            System.out.println("5. Exit");
-            System.out.print("Choose an option: ");
+        try {
+            while (true) {
+                System.out.println("\n1. Create Topic");
+                System.out.println("2. Publish Message");
+                System.out.println("3. Show Subscriber Count");
+                System.out.println("4. Delete Topic");
+                System.out.println("5. Exit");
+                System.out.print("Choose an option: ");
 
-            int choice = scanner.nextInt();
-            scanner.nextLine(); // Consume newline
+                int choice = scanner.nextInt();
+                scanner.nextLine(); // Consume newline
 
-            try {
-                switch (choice) {
-                    case 1:
-                        System.out.print("Enter topic name: ");
-                        createTopic(scanner.nextLine());
-                        break;
-                    case 2:
-                        System.out.print("Enter topic ID: ");
-                        String topicId = scanner.nextLine();
-                        System.out.print("Enter message: ");
-                        publishMessage(topicId, scanner.nextLine());
-                        break;
-                    case 3:
-                        showSubscriberCount();
-                        break;
-                    case 4:
-                        System.out.print("Enter topic ID to delete: ");
-                        deleteTopic(scanner.nextLine());
-                        break;
-                    case 5:
-                        close();
-                        return;
-                    default:
-                        System.out.println("Invalid option. Please try again.");
+                try {
+                    switch (choice) {
+                        case 1:
+                            System.out.print("Enter topic name: ");
+                            createTopic(scanner.nextLine());
+                            break;
+                        case 2:
+                            System.out.print("Enter topic ID: ");
+                            String topicId = scanner.nextLine();
+                            System.out.print("Enter message: ");
+                            String message = scanner.nextLine();
+                            publishMessage(topicId, message);
+                            break;
+                        case 3:
+                            showSubscriberCount();
+                            break;
+                        case 4:
+                            System.out.print("Enter topic ID to delete: ");
+                            deleteTopic(scanner.nextLine());
+                            break;
+                        case 5:
+                            close();
+                            scanner.close();
+                            return;
+                        default:
+                            System.out.println("Invalid option. Please try again.");
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+        } finally {
+            scanner.close();
         }
     }
 }
