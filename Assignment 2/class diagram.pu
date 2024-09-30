@@ -1,0 +1,70 @@
+@startuml
+class brokerNetwork {
+    - brokerID: int
+    - brokerName: String
+    - brokerLocation: String
+    - brokerIP: String
+    - brokerPort: String
+    - brokerStatus: String
+    - brokerType: String
+    - brokerVersion: String
+    {method} startBroker(): void
+    {method} stopBroker(): void
+    {method} restartBroker(): void
+    {method} showBrokerStatus(): String
+    {method} showBrokerInfo(): String
+    {method} showBrokerVersion(): String
+    {method} showBrokerLocation(): String
+    {method} showBrokerIP(): String
+    {method} showBrokerPort(): String
+}
+
+class publisher {
+    - publisherID: int
+    - publisherName: String
+    - publisherLocation: String
+    - publisherIP: String
+    - publisherPort: String
+    - publisherStatus: String
+    - publisherType: String
+    - publisherVersion: String
+    {method} createTopic(topicName: String): topic
+    {method} publishMessage(topicID: int, message: String): void
+    {method} showSubscriberCount(topicID: int): int
+    {method} deleteTopic(topicID: int): void
+}
+
+class subscriber {
+    - subscriberID: int
+    - subscriberName: String
+    - subscriberLocation: String
+    - subscriberIP: String
+    - subscriberPort: String
+    - subscriberStatus: String
+    - subscriberType: String
+    {method} listTopics(): List<topic>
+    {method} subscribe(topicID: int): void
+    {method} showCurrentSubscription(topicID: int): List<subscritions>
+    {method} unsubscribe(topicID: int): void
+}
+
+class topic {
+    - topicID: int
+    - topicName: String
+    - topicOwner: publisher
+}
+
+class messageHandler {
+    - messageID: int
+    - messageContent: String
+    - messageTimestamp: Date
+    - messageStatus: String
+    - messageType: String
+    - messageSender: publisher
+    - messageReceiver: subscriber
+    {method} sendMessage(message: String): void
+    {method} receiveMessage(message: String): void
+
+}
+
+@enduml
