@@ -35,21 +35,14 @@ public class subscriber {
     public void listAllTopics() throws IOException {
         out.println("LIST_TOPICS");
         System.out.println("Available Topics:");
-        System.out.println("+--------------------------------------+------------+------------------+");
-        System.out.println("|               Topic ID               | Topic Name |     Publisher    |");
-        System.out.println("+--------------------------------------+------------+------------------+");
         
         String response;
         while (!(response = waitForResponse()).equals("END")) {
             String[] parts = response.split("\\|");
             if (parts.length == 3) {
-                System.out.printf("| %-32s | %-10s | %-16s |%n", parts[0], parts[1], parts[2]);
-            } else {
-                System.out.println("| " + response);
+                System.out.printf("[%s] [%s] [%s]%n", parts[0], parts[1], parts[2]);
             }
         }
-        
-        System.out.println("+--------------------------------------+------------+------------------+");
     }
 
     public void subscribeTopic(String topicId) throws IOException {
@@ -72,17 +65,13 @@ public class subscriber {
 
     public void showCurrentSubscriptions() {
         System.out.println("Current subscriptions:");
-        System.out.println("+--------------------------------------+------------+------------------+");
-        System.out.println("|               Topic ID               | Topic Name |     Publisher    |");
-        System.out.println("+--------------------------------------+------------+------------------+");
         for (String topicId : subscriptions) {
             String details = subscriptionDetails.get(topicId);
             if (details != null) {
                 String[] parts = details.split("\\|");
-                System.out.printf("| %-36s | %-10s | %-16s |%n", topicId, parts[0], parts[1]);
+                System.out.printf("[%s] [%s] [%s]%n", topicId, parts[0], parts[1]);
             }
         }
-        System.out.println("+--------------------------------------+------------+------------------+");
     }
 
     public void unsubscribeTopic(String topicId) throws IOException {
@@ -103,7 +92,11 @@ public class subscriber {
             try {
                 String message;
                 while (isRunning && (message = in.readLine()) != null) {
-                    messageQueue.put(message);
+                    if (message.startsWith("[")) {
+                        System.out.println(message);
+                    } else {
+                        messageQueue.put(message);
+                    }
                 }
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
@@ -150,54 +143,75 @@ public class subscriber {
     private void startConsole() {
         Scanner scanner = new Scanner(System.in);
         while (isRunning) {
-            System.out.println("\n1. List All Topics");
-            System.out.println("2. Subscribe to Topic");
-            System.out.println("3. Show Current Subscriptions");
-            System.out.println("4. Unsubscribe from Topic");
-            System.out.println("5. Exit");
-            System.out.print("Choose an option: ");
+            System.out.println("\nPlease select command: list, sub, current, unsub.");
+            System.out.println("1. list {all} #list all topics");
+            System.out.println("2. sub {topic_id} #subsribe to a topic");
+            System.out.println("3. current #show the current subscriptions of the subsriber");
+            System.out.println("4. unsub {topic_id} #unsubsribe from a topic");
+            
+            String input = scanner.nextLine().trim();
+            String[] parts = input.split("\\s+", 2);
+            
+            if (parts.length == 0) {
+                System.out.println("Invalid input. Please try again.");
+                continue;
+            }
 
-            int choice = scanner.nextInt();
-            scanner.nextLine(); // Consume newline
+            String command = parts[0].toLowerCase();
 
             try {
-                switch (choice) {
-                    case 1:
+                switch (command) {
+                    case "list":
+                        if (parts.length != 2 || !parts[1].equalsIgnoreCase("all")) {
+                            System.out.println("Invalid format. Use: list all");
+                            break;
+                        }
                         listAllTopics();
                         break;
-                    case 2:
-                        System.out.print("Enter topic ID to subscribe: ");
-                        subscribeTopic(scanner.nextLine());
+                    case "sub":
+                        if (parts.length != 2) {
+                            System.out.println("Invalid format. Use: sub {topic_id}");
+                            break;
+                        }
+                        subscribeTopic(parts[1]);
                         break;
-                    case 3:
+                    case "current":
+                        if (parts.length != 1) {
+                            System.out.println("Invalid format. Use: current");
+                            break;
+                        }
                         showCurrentSubscriptions();
                         break;
-                    case 4:
-                        System.out.print("Enter topic ID to unsubscribe: ");
-                        unsubscribeTopic(scanner.nextLine());
+                    case "unsub":
+                        if (parts.length != 2) {
+                            System.out.println("Invalid format. Use: unsub {topic_id}");
+                            break;
+                        }
+                        unsubscribeTopic(parts[1]);
                         break;
-                    case 5:
+                    case "exit":
                         close();
                         isRunning = false;
                         return;
                     default:
-                        System.out.println("Invalid option. Please try again.");
+                        System.out.println("Invalid command. Please try again.");
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                System.out.println("Error: " + e.getMessage());
             }
 
             // 处理接收到的消息
             processReceivedMessages();
         }
+        scanner.close();
     }
 
     private void processReceivedMessages() {
         List<String> messages = new ArrayList<>();
         messageQueue.drainTo(messages);
         for (String message : messages) {
-            if (!message.equals("SUCCESS")) {
-                System.out.println("Received message: " + message);
+            if (!message.equals("SUCCESS") && !message.startsWith("[")) {
+                System.out.println("收到消息: " + message);
             }
         }
     }

@@ -24,40 +24,42 @@ public class publisher {
         out.println(name);
     }
 
-    public void createTopic(String topicName) throws IOException {
+    public void createTopic(String topicInfo) throws IOException {
+        String[] parts = topicInfo.split(" ", 2);
+        if (parts.length != 2) {
+            System.out.println("Invalid topic format. Please use 'topic_id topic_name'.");
+            return;
+        }
         out.println("CREATE_TOPIC");
-        out.println(topicName);
+        out.println(parts[0]); // topic_id
+        out.println(parts[1]); // topic_name
         String response = in.readLine();
-        System.out.println("Topic created with ID: " + response);
+        System.out.println(response);
     }
 
     public void publishMessage(String topicId, String message) throws IOException {
         if (message.length() > MAX_MESSAGE_LENGTH) {
-            System.out.println("Message is too long. Maximum length is " + MAX_MESSAGE_LENGTH + " characters.");
+            System.out.println("消息太长。最大长度为 " + MAX_MESSAGE_LENGTH + " 个字符。");
             return;
         }
         out.println("PUBLISH_MESSAGE");
         out.println(topicId);
         out.println(message);
         String response = in.readLine();
-        System.out.println("Message published: " + response);
+        System.out.println("消息已发布: " + response);
     }
 
-    public void showSubscriberCount() throws IOException {
+    public void showSubscriberCount(String topicId) throws IOException {
         out.println("SHOW_SUBSCRIBER_COUNT");
+        out.println(topicId);
         System.out.println("Topics and their subscriber counts:");
-        System.out.println("+----------------------+---------------------------------------+------------------+");
-        System.out.println("|     Topic Name       |                Topic ID               | Subscriber Count |");
-        System.out.println("+----------------------+---------------------------------------+------------------+");
-        
         String response;
         while (!(response = in.readLine()).equals("END")) {
             String[] parts = response.split("\\|");
             if (parts.length == 3) {
-                System.out.printf("| %-20s | %-32s | %-17s |%n", parts[0], parts[1], parts[2]);
+                System.out.printf("[%s] [%s] [%s]%n", parts[0], parts[1], parts[2]);
             }
         }
-        System.out.println("+----------------------+---------------------------------------+------------------+");
     }
 
     public void deleteTopic(String topicId) throws IOException {
@@ -94,49 +96,71 @@ public class publisher {
         Scanner scanner = new Scanner(System.in);
         try {
             while (true) {
-                System.out.println("\n1. Create Topic");
-                System.out.println("2. Publish Message");
-                System.out.println("3. Show Subscriber Count");
-                System.out.println("4. Delete Topic");
-                System.out.println("5. Exit");
-                System.out.print("Choose an option: ");
+                System.out.println("\nPlease select command: create, publish, show, delete.");
+                System.out.println("1. create {topic_id} {topic_name} #create a new topic");
+                System.out.println("2. publish {topic_id} {message} #publish a message to an existing topic");
+                System.out.println("3. show {topic_id} #show subsriber count for current publisher");
+                System.out.println("4. delete {topic_id} #delete a topic");
+                
+                String input = scanner.nextLine().trim();
+                String[] parts = input.split("\\s+", 3);
+                
+                if (parts.length == 0) {
+                    System.out.println("Invalid input. Please try again.");
+                    continue;
+                }
 
-                int choice = scanner.nextInt();
-                scanner.nextLine(); // Consume newline
+                String command = parts[0].toLowerCase();
 
                 try {
-                    switch (choice) {
-                        case 1:
-                            System.out.print("Enter topic name: ");
-                            createTopic(scanner.nextLine());
+                    switch (command) {
+                        case "create":
+                            if (parts.length != 3) {
+                                System.out.println("Invalid format. Use: create {topic_id} {topic_name}");
+                                break;
+                            }
+                            createTopic(parts[1] + " " + parts[2]);
                             break;
-                        case 2:
-                            System.out.print("Enter topic ID: ");
-                            String topicId = scanner.nextLine();
-                            System.out.print("Enter message: ");
-                            String message = scanner.nextLine();
-                            publishMessage(topicId, message);
+                        case "publish":
+                            if (parts.length != 3) {
+                                System.out.println("Invalid format. Use: publish {topic_id} {message}");
+                                break;
+                            }
+                            publishMessage(parts[1], parts[2]);
                             break;
-                        case 3:
-                            showSubscriberCount();
+                        case "show":
+                            if (parts.length != 2) {
+                                System.out.println("Invalid format. Use: show {topic_id}");
+                                break;
+                            }
+                            showSubscriberCount(parts[1]);
                             break;
-                        case 4:
-                            System.out.print("Enter topic ID to delete: ");
-                            deleteTopic(scanner.nextLine());
+                        case "delete":
+                            if (parts.length != 2) {
+                                System.out.println("Invalid format. Use: delete {topic_id}");
+                                break;
+                            }
+                            deleteTopic(parts[1]);
                             break;
-                        case 5:
+                        case "exit":
                             close();
-                            scanner.close();
                             return;
                         default:
-                            System.out.println("Invalid option. Please try again.");
+                            System.out.println("Invalid command. Please try again.");
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    System.out.println("Error: " + e.getMessage());
                 }
             }
+        } catch (Exception e) {
+            System.out.println("An unexpected error occurred: " + e.getMessage());
         } finally {
             scanner.close();
+            try {
+                close();
+            } catch (IOException e) {
+                System.out.println("Error closing connection: " + e.getMessage());
+            }
         }
     }
 }

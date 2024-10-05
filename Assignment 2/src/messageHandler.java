@@ -4,10 +4,16 @@
 
 import java.io.*;
 import java.net.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class messageHandler {
-    public static String formatMessage(String topicId, String topicName, String publisherName, String message) {
-        return String.format("[Topic: %s (%s)] %s: %s", topicName, topicId, publisherName, message);
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM HH:mm:ss");
+
+    public static String formatMessage(String topicId, String topicName, String message) {
+        LocalDateTime now = LocalDateTime.now();
+        String timestamp = now.format(formatter);
+        return String.format("%s %s:%s: %s", timestamp, topicId, topicName, message);
     }
 
     public static void sendMessage(Socket socket, String message) throws IOException {

@@ -62,10 +62,12 @@ public class broker {
     }
 
     // Create a new topic
-    public String createTopic(String topicName, String publisherName) {
-        String topicId = UUID.randomUUID().toString();
+    public String createTopic(String topicId, String topicName, String publisherName) {
+        if (topics.containsKey(topicId)) {
+            return "ERROR: Topic ID already exists";
+        }
         topics.put(topicId, new Topic(topicId, topicName, publisherName));
-        return topicId;
+        return "SUCCESS: Topic created with ID: " + topicId;
     }
 
     // Publish a message to a topic
@@ -75,10 +77,11 @@ public class broker {
         }
         Topic topic = topics.get(topicId);
         if (topic != null) {
+            String formattedMessage = messageHandler.formatMessage(topicId, topic.name, message);
             for (String subscriber : topic.subscribers) {
                 try {
                     Socket subscriberSocket = subscriberSockets.get(subscriber);
-                    messageHandler.sendMessage(subscriberSocket, messageHandler.formatMessage(topicId, topic.name, topic.publisherName, message));
+                    messageHandler.sendMessage(subscriberSocket, formattedMessage);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -163,9 +166,10 @@ public class broker {
             while ((request = reader.readLine()) != null) {
                 switch (request) {
                     case "CREATE_TOPIC":
+                        String topicId = reader.readLine();
                         String topicName = reader.readLine();
-                        String topicId = createTopic(topicName, publisherName);
-                        messageHandler.sendMessage(publisherSockets.get(publisherName), "Topic created: " + topicId);
+                        String response = createTopic(topicId, topicName, publisherName);
+                        messageHandler.sendMessage(publisherSockets.get(publisherName), response);
                         break;
                     case "PUBLISH_MESSAGE":
                         String msgTopicId = reader.readLine();
@@ -177,8 +181,8 @@ public class broker {
                         StringBuilder counts = new StringBuilder();
                         for (Topic topic : topics.values()) {
                             if (topic.publisherName.equals(publisherName)) {
-                                counts.append(topic.name).append("|")
-                                      .append(topic.id).append("|")
+                                counts.append(topic.id).append("|")
+                                      .append(topic.name).append("|")
                                       .append(topic.subscribers.size()).append("\n");
                             }
                         }
