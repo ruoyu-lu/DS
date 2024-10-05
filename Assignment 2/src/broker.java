@@ -71,21 +71,29 @@ public class broker {
     }
 
     // Publish a message to a topic
-    public void publishMessage(String topicId, String message) {
+    public void publishMessage(String topicId, String message, String publisherName) {
         if (message.length() > MAX_MESSAGE_LENGTH) {
             throw new IllegalArgumentException("Message exceeds maximum length");
         }
         Topic topic = topics.get(topicId);
         if (topic != null) {
-            String formattedMessage = messageHandler.formatMessage(topicId, topic.name, message);
+            String formattedMessage = messageHandler.formatMessage(topicId, topic.name, publisherName, message);
             for (String subscriber : topic.subscribers) {
                 try {
                     Socket subscriberSocket = subscriberSockets.get(subscriber);
-                    messageHandler.sendMessage(subscriberSocket, formattedMessage);
+                    if (subscriberSocket != null && subscriberSocket.isConnected()) {
+                        messageHandler.sendMessage(subscriberSocket, formattedMessage);
+                    } else {
+                        System.out.println("Subscriber socket is null or disconnected: " + subscriber);
+                    }
                 } catch (IOException e) {
+                    System.out.println("Error sending message to subscriber: " + subscriber);
                     e.printStackTrace();
                 }
             }
+            System.out.println("Message published to topic " + topicId + ": " + formattedMessage);
+        } else {
+            System.out.println("Topic not found: " + topicId);
         }
     }
 
@@ -174,7 +182,7 @@ public class broker {
                     case "PUBLISH_MESSAGE":
                         String msgTopicId = reader.readLine();
                         String message = reader.readLine();
-                        publishMessage(msgTopicId, message);
+                        publishMessage(msgTopicId, message, publisherName);
                         messageHandler.sendMessage(publisherSockets.get(publisherName), "Message published");
                         break;
                     case "SHOW_SUBSCRIBER_COUNT":
@@ -197,6 +205,7 @@ public class broker {
                 }
             }
         } catch (IOException e) {
+            System.out.println("Error handling publisher: " + publisherName);
             e.printStackTrace();
         }
     }

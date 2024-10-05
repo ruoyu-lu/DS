@@ -39,14 +39,14 @@ public class publisher {
 
     public void publishMessage(String topicId, String message) throws IOException {
         if (message.length() > MAX_MESSAGE_LENGTH) {
-            System.out.println("消息太长。最大长度为 " + MAX_MESSAGE_LENGTH + " 个字符。");
+            System.out.println("Message is too long. The max length is " + MAX_MESSAGE_LENGTH + " characters.");
             return;
         }
         out.println("PUBLISH_MESSAGE");
         out.println(topicId);
         out.println(message);
         String response = in.readLine();
-        System.out.println("消息已发布: " + response);
+        System.out.println("Message published: " + response);
     }
 
     public void showSubscriberCount(String topicId) throws IOException {
