@@ -73,11 +73,17 @@ public class broker {
     // Publish a message to a topic
     public void publishMessage(String topicId, String message, String publisherName) {
         if (message.length() > MAX_MESSAGE_LENGTH) {
-            throw new IllegalArgumentException("Message exceeds maximum length");
+            try {
+                messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: Message exceeds maximum length");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
         }
         Topic topic = topics.get(topicId);
         if (topic != null) {
             String formattedMessage = messageHandler.formatMessage(topicId, topic.name, publisherName, message);
+            boolean allSent = true;
             for (String subscriber : topic.subscribers) {
                 try {
                     Socket subscriberSocket = subscriberSockets.get(subscriber);
@@ -85,15 +91,31 @@ public class broker {
                         messageHandler.sendMessage(subscriberSocket, formattedMessage);
                     } else {
                         System.out.println("Subscriber socket is null or disconnected: " + subscriber);
+                        allSent = false;
                     }
                 } catch (IOException e) {
                     System.out.println("Error sending message to subscriber: " + subscriber);
                     e.printStackTrace();
+                    allSent = false;
                 }
             }
             System.out.println("Message published to topic " + topicId + ": " + formattedMessage);
+            try {
+                if (allSent) {
+                    messageHandler.sendMessage(publisherSockets.get(publisherName), "SUCCESS");
+                } else {
+                    messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: Some subscribers could not receive the message");
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         } else {
             System.out.println("Topic not found: " + topicId);
+            try {
+                messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: Topic not found");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -120,12 +142,22 @@ public class broker {
 
     // Unsubscribe from a topic
     public void unsubscribeTopic(String topicId, String subscriberName) {
+        System.out.println("Attempting to unsubscribe " + subscriberName + " from topic " + topicId);
         Topic topic = topics.get(topicId);
         if (topic != null) {
-            topic.subscribers.remove(subscriberName);
+            boolean removed = topic.subscribers.remove(subscriberName);
+            System.out.println("Subscriber removed from topic: " + removed);
             try {
                 Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, "Unsubscribed from topic: " + topic.name);
+                messageHandler.sendMessage(subscriberSocket, removed ? "SUCCESS" : "FAILED|Not subscribed to this topic");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Topic not found: " + topicId);
+            try {
+                Socket subscriberSocket = subscriberSockets.get(subscriberName);
+                messageHandler.sendMessage(subscriberSocket, "FAILED|Topic not found");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -183,19 +215,18 @@ public class broker {
                         String msgTopicId = reader.readLine();
                         String message = reader.readLine();
                         publishMessage(msgTopicId, message, publisherName);
-                        messageHandler.sendMessage(publisherSockets.get(publisherName), "Message published");
+                        // 移除这行，因为响应已经在 publishMessage 方法中发送
+                        // messageHandler.sendMessage(publisherSockets.get(publisherName), "Message published");
                         break;
                     case "SHOW_SUBSCRIBER_COUNT":
-                        StringBuilder counts = new StringBuilder();
-                        for (Topic topic : topics.values()) {
-                            if (topic.publisherName.equals(publisherName)) {
-                                counts.append(topic.id).append("|")
-                                      .append(topic.name).append("|")
-                                      .append(topic.subscribers.size()).append("\n");
-                            }
+                        String showTopicId = reader.readLine();
+                        Topic topic = topics.get(showTopicId);
+                        if (topic != null && topic.publisherName.equals(publisherName)) {
+                            String count = showTopicId + "|" + topic.name + "|" + topic.subscribers.size() + "\n";
+                            messageHandler.sendMessage(publisherSockets.get(publisherName), count + "END");
+                        } else {
+                            messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: Topic not found or not owned by this publisher");
                         }
-                        counts.append("END");
-                        messageHandler.sendMessage(publisherSockets.get(publisherName), counts.toString());
                         break;
                     case "DELETE_TOPIC":
                         String delTopicId = reader.readLine();

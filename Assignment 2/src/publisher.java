@@ -46,18 +46,29 @@ public class publisher {
         out.println(topicId);
         out.println(message);
         String response = in.readLine();
-        System.out.println("Message published: " + response);
+        if (response.equals("SUCCESS")) {
+            System.out.println("Message published: SUCCESS");
+        } else if (response.startsWith("ERROR:")) {
+            System.out.println("Message published: " + response);
+        } else {
+            System.out.println("Unexpected response: " + response);
+        }
     }
 
     public void showSubscriberCount(String topicId) throws IOException {
         out.println("SHOW_SUBSCRIBER_COUNT");
         out.println(topicId);
-        System.out.println("Topics and their subscriber counts:");
-        String response;
-        while (!(response = in.readLine()).equals("END")) {
-            String[] parts = response.split("\\|");
-            if (parts.length == 3) {
-                System.out.printf("[%s] [%s] [%s]%n", parts[0], parts[1], parts[2]);
+        String response = in.readLine();
+        if (response.startsWith("ERROR:")) {
+            System.out.println(response);
+        } else {
+            System.out.println("Topics and their subscriber counts:");
+            while (!response.equals("END")) {
+                String[] parts = response.split("\\|");
+                if (parts.length == 3) {
+                    System.out.printf("%s %s %s%n", parts[0], parts[1], parts[2]);
+                }
+                response = in.readLine();
             }
         }
     }
@@ -142,9 +153,6 @@ public class publisher {
                             }
                             deleteTopic(parts[1]);
                             break;
-                        case "exit":
-                            close();
-                            return;
                         default:
                             System.out.println("Invalid command. Please try again.");
                     }

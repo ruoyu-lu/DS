@@ -40,7 +40,7 @@ public class subscriber {
         while (!(response = waitForResponse()).equals("END")) {
             String[] parts = response.split("\\|");
             if (parts.length == 3) {
-                System.out.printf("[%s] [%s] [%s]%n", parts[0], parts[1], parts[2]);
+                System.out.printf("%s %s %s%n", parts[0], parts[1], parts[2]);
             }
         }
     }
@@ -69,21 +69,23 @@ public class subscriber {
             String details = subscriptionDetails.get(topicId);
             if (details != null) {
                 String[] parts = details.split("\\|");
-                System.out.printf("[%s] [%s] [%s]%n", topicId, parts[0], parts[1]);
+                System.out.printf("%s %s %s%n", topicId, parts[0], parts[1]);
             }
         }
     }
 
     public void unsubscribeTopic(String topicId) throws IOException {
+        System.out.println("Attempting to unsubscribe from topic: " + topicId);
         out.println("UNSUBSCRIBE_TOPIC");
         out.println(topicId);
         String response = waitForResponse();
+        System.out.println("Received response: " + response);
         if (response.equals("SUCCESS")) {
             subscriptions.remove(topicId);
             subscriptionDetails.remove(topicId);
             System.out.println("Successfully unsubscribed from topic: " + topicId);
         } else {
-            System.out.println("Failed to unsubscribe from topic: " + topicId);
+            System.out.println("Failed to unsubscribe from topic: " + topicId + " - " + response);
         }
     }
 
@@ -92,7 +94,8 @@ public class subscriber {
             try {
                 String message;
                 while (isRunning && (message = in.readLine()) != null) {
-                    if (message.startsWith("[")) {
+                    // 检查消息是否符合新的格式（以日期时间开头）
+                    if (message.matches("\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}.*")) {
                         System.out.println(message);
                     } else {
                         messageQueue.put(message);
@@ -189,10 +192,6 @@ public class subscriber {
                         }
                         unsubscribeTopic(parts[1]);
                         break;
-                    case "exit":
-                        close();
-                        isRunning = false;
-                        return;
                     default:
                         System.out.println("Invalid command. Please try again.");
                 }
@@ -211,7 +210,7 @@ public class subscriber {
         messageQueue.drainTo(messages);
         for (String message : messages) {
             if (!message.equals("SUCCESS") && !message.startsWith("[")) {
-                System.out.println("收到消息: " + message);
+                System.out.println(message);
             }
         }
     }

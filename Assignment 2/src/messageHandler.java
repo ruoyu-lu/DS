@@ -13,7 +13,7 @@ public class messageHandler {
     public static String formatMessage(String topicId, String topicName, String publisherName, String message) {
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(formatter);
-        return String.format("[%s] [%s:%s:%s] %s", timestamp, topicId, topicName, publisherName, message);
+        return String.format("%s %s:%s:%s %s", timestamp, topicId, topicName, publisherName, message);
     }
 
     public static void sendMessage(Socket socket, String message) throws IOException {
