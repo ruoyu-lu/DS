@@ -157,7 +157,7 @@ public class broker {
             System.out.println("Topic not found: " + topicId);
             try {
                 Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, "FAILED|Topic not found");
+                messageHandler.sendMessage(subscriberSocket, "FAILED: Topic not found");
             } catch (IOException e) {
                 e.printStackTrace();
             }
