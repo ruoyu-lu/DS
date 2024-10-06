@@ -11,6 +11,12 @@
 - 2024-10-04 v0.3.1: 修复了broker的消息传递、主题列表显示和订阅确认机制的问题
 - 2024-10-05 v0.3.2: 改进了发布者的 "Show Subscriber Count" 功能，现在显示所有创建的主题及其订阅者数量
 - 2024-10-06 v0.3.3: 实现了实时消息显示功能，订阅者现在可以看到带有时间戳的实时消息
+- 2024-10-07 v0.4.0: 更新了 broker、publisher 和 subscriber 的 main 方法以支持命令行参数
+- 2024-10-08 v0.4.1: 修复了 broker 和 brokerNetwork 类的编译错误，调整了部分方法的访问修饰符
+- 2024-10-09 v0.4.2: 修复了 broker 类中重复的 getAllTopics() 方法定义
+- 2024-10-10 v0.4.3: 更新了 broker 的 main 方法以支持指定 broker 名称
+- 2024-10-11 v0.4.4: 修复了 broker 连接其他 broker 时的参数解析问题
+- 2024-10-12 v0.4.5: 修复了 brokerNetwork 类中 connectToBroker 方法的参数不匹配问题
 
 ## 开发阶段使用说明
 
@@ -33,7 +39,7 @@
 
 2. 运行broker:
    ```
-   java -jar broker.jar <port> [-b <broker_ip_1:port1> <broker_ip_2:port2>]
+   java -jar broker.jar <broker_name> <port> [-b <broker_name:broker_ip:broker_port> ...]
    ```
 
 3. 运行publisher:
@@ -56,6 +62,6 @@
 ## 注意事项
 
 - 确保所有类都正确处理IOException和其他可能的异常。
-- 在实际部署时，需要考虑网络安全性，可能需要添加身份验证和加密机制。
+- 在实际部署时，需要考虑网络安��性，可能需要添加身份验证和加密机制。
 - 考虑使用配置文件来管理broker的端口号和其他设置，而不是硬编码。
 - 当前实现假设有3个broker节点，如果需要更改节点数量，请相应修改BROKER_COUNT常量。

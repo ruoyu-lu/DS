@@ -185,7 +185,7 @@ public class broker {
     }
 
     // Inner class to represent a Topic
-    private static class Topic {
+    public static class Topic {
         String id;
         String name;
         String publisherName;
@@ -273,31 +273,47 @@ public class broker {
 
     // Main method to run the broker
     public static void main(String[] args) {
-        int port = 8080; // 默认端口
+        if (args.length < 2) {
+            System.out.println("用法: java -jar broker.jar <broker_name> <port> [-b <broker_name:broker_ip:broker_port> ...]");
+            return;
+        }
+
+        String brokerName = args[0];
+        int port = Integer.parseInt(args[1]);
         broker brokerInstance = new broker(port);
         
-        if (args.length > 0) {
-            port = Integer.parseInt(args[0]);
-        }
-        
-        // 连接到其他broker的逻辑保持不变，但在开发阶段可以先注释掉
-        /*
-        if (args.length > 2 && args[1].equals("-b")) {
-            for (int i = 2; i < args.length; i++) {
+        if (args.length > 3 && args[2].equals("-b")) {
+            for (int i = 3; i < args.length; i++) {
                 String[] brokerInfo = args[i].split(":");
-                String ip = brokerInfo[0];
-                int brokerPort = Integer.parseInt(brokerInfo[1]);
-                brokerInstance.connectToBroker(ip, brokerPort);
+                if (brokerInfo.length != 3) {
+                    System.out.println("错误的 broker 信息格式: " + args[i]);
+                    continue;
+                }
+                String otherBrokerName = brokerInfo[0];
+                String ip = brokerInfo[1];
+                int brokerPort = Integer.parseInt(brokerInfo[2]);
+                brokerInstance.connectToBroker(otherBrokerName, ip, brokerPort);
             }
         }
-        */
         
-        System.out.println("Broker starting on port " + port);
+        System.out.println("Broker " + brokerName + " starting on port " + port);
         brokerInstance.start();
     }
 
-    private void connectToBroker(String ip, int port) {
-        // TODO: Implement connection to other brokers
-        System.out.println("Connecting to broker at " + ip + ":" + port);
+    // 添加一个公共方法来获取端口
+    public int getPort() {
+        return port;
+    }
+
+    // 将 connectToBroker 方法改为 public
+    public void connectToBroker(String brokerName, String ip, int port) {
+        // TODO: 实现连接到其他 broker 的逻辑
+        System.out.println("Connecting to broker " + brokerName + " at " + ip + ":" + port);
+    }
+
+    // 添加一个方法来广播消息到其他 broker
+    public void broadcastToBrokers(String topicId, String message) {
+        // TODO: 实现广播逻辑
+        System.out.println("Broadcasting message for topic " + topicId + " to other brokers");
     }
 }

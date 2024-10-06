@@ -85,15 +85,14 @@ public class publisher {
     }
 
     public static void main(String[] args) {
-        String username = "DefaultPublisher";
-        String brokerIp = "localhost";
-        int brokerPort = 8080;
-
-        if (args.length == 3) {
-            username = args[0];
-            brokerIp = args[1];
-            brokerPort = Integer.parseInt(args[2]);
+        if (args.length != 3) {
+            System.out.println("用法: java -jar publisher.jar username broker_ip broker_port");
+            return;
         }
+
+        String username = args[0];
+        String brokerIp = args[1];
+        int brokerPort = Integer.parseInt(args[2]);
 
         try {
             publisher pub = new publisher(username, brokerIp, brokerPort);
