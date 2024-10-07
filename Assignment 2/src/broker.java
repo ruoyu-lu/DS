@@ -274,29 +274,27 @@ public class broker {
     // Main method to run the broker
     public static void main(String[] args) {
         if (args.length < 2) {
-            System.out.println("用法: java -jar broker.jar <broker_name> <port> [-b <broker_name:broker_ip:broker_port> ...]");
+            System.out.println("用法: java -jar broker.jar <port> [-b <broker_ip_1:port1> <broker_ip_2:port2> ...]");
             return;
         }
 
-        String brokerName = args[0];
-        int port = Integer.parseInt(args[1]);
+        int port = Integer.parseInt(args[0]);
         broker brokerInstance = new broker(port);
         
-        if (args.length > 3 && args[2].equals("-b")) {
-            for (int i = 3; i < args.length; i++) {
+        if (args.length > 2 && args[1].equals("-b")) {
+            for (int i = 2; i < args.length; i++) {
                 String[] brokerInfo = args[i].split(":");
-                if (brokerInfo.length != 3) {
+                if (brokerInfo.length != 2) {
                     System.out.println("错误的 broker 信息格式: " + args[i]);
                     continue;
                 }
-                String otherBrokerName = brokerInfo[0];
-                String ip = brokerInfo[1];
-                int brokerPort = Integer.parseInt(brokerInfo[2]);
-                brokerInstance.connectToBroker(otherBrokerName, ip, brokerPort);
+                String ip = brokerInfo[0];
+                int brokerPort = Integer.parseInt(brokerInfo[1]);
+                brokerInstance.connectToBroker("broker" + i, ip, brokerPort);
             }
         }
         
-        System.out.println("Broker " + brokerName + " starting on port " + port);
+        System.out.println("Broker starting on port " + port);
         brokerInstance.start();
     }
 

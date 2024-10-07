@@ -17,6 +17,8 @@
 - 2024-10-10 v0.4.3: 更新了 broker 的 main 方法以支持指定 broker 名称
 - 2024-10-11 v0.4.4: 修复了 broker 连接其他 broker 时的参数解析问题
 - 2024-10-12 v0.4.5: 修复了 brokerNetwork 类中 connectToBroker 方法的参数不匹配问题
+- 2024-10-13 v0.4.6: 修复了 broker 启动时多个 -b 参数的解析问题
+- 2024-10-14 v0.4.7: 修改了 broker 的命令行参数格式,现在 -b 只需要输入一次
 
 ## 开发阶段使用说明
 
@@ -39,7 +41,7 @@
 
 2. 运行broker:
    ```
-   java -jar broker.jar <broker_name> <port> [-b <broker_name:broker_ip:broker_port> ...]
+   java -jar broker.jar <port> [-b <broker_ip_1:port1> <broker_ip_2:port2> ...]
    ```
 
 3. 运行publisher:
@@ -62,6 +64,6 @@
 ## 注意事项
 
 - 确保所有类都正确处理IOException和其他可能的异常。
-- 在实际部署时，需要考虑网络安��性，可能需要添加身份验证和加密机制。
+- 在实际部署时，需要考虑网络安性，可能需要添加身份验证和加密机制。
 - 考虑使用配置文件来管理broker的端口号和其他设置，而不是硬编码。
 - 当前实现假设有3个broker节点，如果需要更改节点数量，请相应修改BROKER_COUNT常量。
