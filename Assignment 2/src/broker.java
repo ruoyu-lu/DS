@@ -18,6 +18,8 @@ public class broker {
     private Map<String, Socket> publisherSockets;
     private Map<String, Socket> subscriberSockets;
     private ExecutorService executorService;
+    private Map<String, Socket> otherBrokers;
+    private ExecutorService connectionExecutor;
 
     public broker(int port) {
         this.port = port;
@@ -25,6 +27,8 @@ public class broker {
         this.publisherSockets = new ConcurrentHashMap<>();
         this.subscriberSockets = new ConcurrentHashMap<>();
         this.executorService = Executors.newFixedThreadPool(MAX_PUBLISHERS + MAX_SUBSCRIBERS);
+        this.otherBrokers = new ConcurrentHashMap<>();
+        this.connectionExecutor = Executors.newCachedThreadPool();
     }
 
     // Start the broker
@@ -45,19 +49,47 @@ public class broker {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             String clientType = reader.readLine();
-            String clientName = reader.readLine();
 
-            if ("PUBLISHER".equals(clientType) && publisherSockets.size() < MAX_PUBLISHERS) {
-                publisherSockets.put(clientName, clientSocket);
-                handlePublisher(clientName, reader);
-            } else if ("SUBSCRIBER".equals(clientType) && subscriberSockets.size() < MAX_SUBSCRIBERS) {
-                subscriberSockets.put(clientName, clientSocket);
-                handleSubscriber(clientName, reader);
+            if ("BROKER".equals(clientType)) {
+                handleBrokerConnection(clientSocket, reader);
+            } else if ("PUBLISHER".equals(clientType)) {
+                String clientName = reader.readLine();
+                if (publisherSockets.size() < MAX_PUBLISHERS) {
+                    publisherSockets.put(clientName, clientSocket);
+                    handlePublisher(clientName, reader);
+                } else {
+                    clientSocket.close();
+                }
+            } else if ("SUBSCRIBER".equals(clientType)) {
+                String clientName = reader.readLine();
+                if (subscriberSockets.size() < MAX_SUBSCRIBERS) {
+                    subscriberSockets.put(clientName, clientSocket);
+                    handleSubscriber(clientName, reader);
+                } else {
+                    clientSocket.close();
+                }
             } else {
                 clientSocket.close();
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private void handleBrokerConnection(Socket brokerSocket, BufferedReader reader) throws IOException {
+        String brokerName = reader.readLine();
+        otherBrokers.put(brokerName, brokerSocket);
+        System.out.println("Connected to broker: " + brokerName);
+
+        String request;
+        while ((request = reader.readLine()) != null) {
+            if ("SYNC_TOPIC".equals(request)) {
+                String topicId = reader.readLine();
+                String topicName = reader.readLine();
+                String publisherName = reader.readLine();
+                syncTopic(topicId, topicName, publisherName);
+            }
+            // 处理其他类型的broker间通信...
         }
     }
 
@@ -67,6 +99,7 @@ public class broker {
             return "ERROR: Topic ID already exists";
         }
         topics.put(topicId, new Topic(topicId, topicName, publisherName));
+        broadcastNewTopic(topicId, topicName, publisherName);
         return "SUCCESS: Topic created with ID: " + topicId;
     }
 
@@ -273,7 +306,7 @@ public class broker {
 
     // Main method to run the broker
     public static void main(String[] args) {
-        if (args.length < 2) {
+        if (args.length < 1) {
             System.out.println("用法: java -jar broker.jar <port> [-b <broker_ip_1:port1> <broker_ip_2:port2> ...]");
             return;
         }
@@ -290,7 +323,7 @@ public class broker {
                 }
                 String ip = brokerInfo[0];
                 int brokerPort = Integer.parseInt(brokerInfo[1]);
-                brokerInstance.connectToBroker("broker" + i, ip, brokerPort);
+                brokerInstance.connectToBroker("broker" + (i - 1), ip, brokerPort);
             }
         }
         
@@ -305,13 +338,65 @@ public class broker {
 
     // 将 connectToBroker 方法改为 public
     public void connectToBroker(String brokerName, String ip, int port) {
-        // TODO: 实现连接到其他 broker 的逻辑
-        System.out.println("Connecting to broker " + brokerName + " at " + ip + ":" + port);
+        System.out.println("等待连接到 broker " + brokerName + " at " + ip + ":" + port);
+        connectionExecutor.submit(() -> {
+            while (true) {
+                try {
+                    Socket socket = new Socket(ip, port);
+                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                    out.println("BROKER");
+                    out.println(this.port); // 发送自己的端口号作为标识
+                    otherBrokers.put(brokerName, socket);
+                    System.out.println("成功连接到 broker " + brokerName + " at " + ip + ":" + port);
+                    
+                    // 连接成功后，同步现有的topics
+                    for (Topic topic : topics.values()) {
+                        out.println("SYNC_TOPIC");
+                        out.println(topic.id);
+                        out.println(topic.name);
+                        out.println(topic.publisherName);
+                    }
+                    
+                    break;
+                } catch (IOException e) {
+                    // 连接失败，等待一段时间后重试
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
+        });
     }
 
     // 添加一个方法来广播消息到其他 broker
     public void broadcastToBrokers(String topicId, String message) {
         // TODO: 实现广播逻辑
         System.out.println("Broadcasting message for topic " + topicId + " to other brokers");
+    }
+
+    public void syncTopic(String topicId, String topicName, String publisherName) {
+        if (!topics.containsKey(topicId)) {
+            topics.put(topicId, new Topic(topicId, topicName, publisherName));
+            System.out.println("Synced new topic: " + topicId + " - " + topicName);
+        }
+    }
+
+    public void broadcastNewTopic(String topicId, String topicName, String publisherName) {
+        for (Map.Entry<String, Socket> entry : otherBrokers.entrySet()) {
+            try {
+                Socket brokerSocket = entry.getValue();
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                out.println("SYNC_TOPIC");
+                out.println(topicId);
+                out.println(topicName);
+                out.println(publisherName);
+            } catch (IOException e) {
+                System.out.println("Error broadcasting new topic to broker: " + entry.getKey());
+                e.printStackTrace();
+            }
+        }
     }
 }
