@@ -102,7 +102,7 @@ public class broker {
                     if (!processedMessages.contains(messageId)) {
                         processedMessages.add(messageId);
                         System.out.println("Received broadcast message for topic " + broadcastTopicId + ": " + message);
-                        broadcastNewMessage(broadcastTopicId, message, sourcePort, messageId);
+                        handleMessageBroadcast(broadcastTopicId, message, sourcePort, messageId);
                         // 处理消息，例如发送给订阅者
                         Topic topic = topics.get(broadcastTopicId);
                         if (topic != null) {
@@ -135,126 +135,6 @@ public class broker {
                     deleteTopic(delTopicId);
                     break;
             }
-        }
-    }
-
-    // Create a new topic
-    public String createTopic(String topicId, String topicName, String publisherName) {
-        if (topics.containsKey(topicId)) {
-            return "ERROR: Topic ID already exists";
-        }
-        topics.put(topicId, new Topic(topicId, topicName, publisherName));
-        broadcastNewTopic(topicId, topicName, publisherName);
-        return "SUCCESS: Topic created with ID: " + topicId;
-    }
-
-    // Publish a message to a topic
-    public void publishMessage(String topicId, String message, String publisherName) {
-        Topic topic = topics.get(topicId);
-        if (topic != null) {
-            String formattedMessage = messageHandler.formatMessage(topicId, topic.name, publisherName, message);
-            System.out.println("Publishing message to topic " + topicId + ": " + formattedMessage);
-            broadcastNewMessage(topicId, formattedMessage, String.valueOf(this.port), null);
-            for (String subscriber : topic.subscribers) {
-                try {
-                    Socket subscriberSocket = subscriberSockets.get(subscriber);
-                    messageHandler.sendMessage(subscriberSocket, formattedMessage);
-                } catch (IOException e) {
-                    System.out.println("Error sending message to subscriber: " + subscriber);
-                    e.printStackTrace();
-                }
-            }
-            // 发送成功消息给发布者
-            try {
-                Socket publisherSocket = publisherSockets.get(publisherName);
-                messageHandler.sendMessage(publisherSocket, "SUCCESS: Message published");
-            } catch (IOException e) {
-                System.out.println("Error sending success message to publisher: " + publisherName);
-                e.printStackTrace();
-            }
-        } else {
-            System.out.println("Topic not found: " + topicId);
-            try {
-                messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: Topic not found");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    // Subscribe to a topic
-    public void subscribeTopic(String topicId, String subscriberName) {
-        Topic topic = topics.get(topicId);
-        if (topic != null) {
-            topic.subscribers.add(subscriberName);
-            showSubscriberCount(topicId);
-            try {
-                Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, "SUCCESS|" + topic.name + "|" + topic.publisherName + "|" + topicId);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } else {
-            try {
-                Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, "FAILED|Topic not found");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    // Unsubscribe from a topic
-    public void unsubscribeTopic(String topicId, String subscriberName) {
-        System.out.println("Attempting to unsubscribe " + subscriberName + " from topic " + topicId);
-        Topic topic = topics.get(topicId);
-        if (topic != null) {
-            boolean removed = topic.subscribers.remove(subscriberName);
-            System.out.println("Subscriber removed from topic: " + removed);
-            try {
-                Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, removed ? "SUCCESS" : "FAILED|Not subscribed to this topic");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } else {
-            System.out.println("Topic not found: " + topicId);
-            try {
-                Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, "FAILED: Topic not found");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    // Delete a topic
-    public void deleteTopic(String topicId) {
-        Topic topic = topics.remove(topicId);
-        if (topic != null) {
-            for (String subscriber : topic.subscribers) {
-                try {
-                    Socket subscriberSocket = subscriberSockets.get(subscriber);
-                    messageHandler.sendMessage(subscriberSocket, "Topic deleted: " + topic.name);
-                } catch (IOException e) {
-
-                    e.printStackTrace();     }
-            }
-        }
-    }
-
-    // Inner class to represent a Topic
-    public static class Topic {
-        String id;
-        String name;
-        String publisherName;
-        Set<String> subscribers;
-
-        Topic(String id, String name, String publisherName) {
-            this.id = id;
-            this.name = name;
-            this.publisherName = publisherName;
-            this.subscribers = new HashSet<>();
         }
     }
 
@@ -328,6 +208,140 @@ public class broker {
         }
     }
 
+    // Create a new topic
+    public String createTopic(String topicId, String topicName, String publisherName) {
+        if (topics.containsKey(topicId)) {
+            return "ERROR: Topic ID already exists";
+        }
+        topics.put(topicId, new Topic(topicId, topicName, publisherName));
+        handleTopicBroadcast(topicId, topicName, publisherName);
+        return "SUCCESS: Topic created with ID: " + topicId;
+    }
+
+    // Publish a message to a topic
+    public void publishMessage(String topicId, String message, String publisherName) {
+        Topic topic = topics.get(topicId);
+        if (topic != null) {
+            String formattedMessage = messageHandler.formatMessage(topicId, topic.name, publisherName, message);
+            System.out.println("Publishing message to topic " + topicId + ": " + formattedMessage);
+            handleMessageBroadcast(topicId, formattedMessage, String.valueOf(this.port), null);
+            for (String subscriber : topic.subscribers) {
+                try {
+                    Socket subscriberSocket = subscriberSockets.get(subscriber);
+                    messageHandler.sendMessage(subscriberSocket, formattedMessage);
+                } catch (IOException e) {
+                    System.out.println("Error sending message to subscriber: " + subscriber);
+                    e.printStackTrace();
+                }
+            }
+            // 发送成功消息给发布者
+            try {
+                Socket publisherSocket = publisherSockets.get(publisherName);
+                messageHandler.sendMessage(publisherSocket, "SUCCESS: Message published");
+            } catch (IOException e) {
+                System.out.println("Error sending success message to publisher: " + publisherName);
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Topic not found: " + topicId);
+            try {
+                messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: Topic not found");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void showSubscriberCount(String topicId) {
+        for (Map.Entry<String, Socket> entry : otherBrokers.entrySet()) {
+            try {
+                Socket brokerSocket = entry.getValue();
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                out.println("SHOW_SUBSCRIBER_COUNT");
+                out.println(topicId);
+            } catch (IOException e) {
+                System.out.println("Error showing subscriber count to broker: " + entry.getKey());
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Delete a topic
+    public void deleteTopic(String topicId) {
+        Topic topic = topics.remove(topicId);
+        if (topic != null) {
+            for (String subscriber : topic.subscribers) {
+                try {
+                    Socket subscriberSocket = subscriberSockets.get(subscriber);
+                    messageHandler.sendMessage(subscriberSocket, "Topic deleted: " + topic.name);
+                } catch (IOException e) {
+
+                    e.printStackTrace();     }
+            }
+        }
+    }
+
+    // Subscribe to a topic
+    public void subscribeTopic(String topicId, String subscriberName) {
+        Topic topic = topics.get(topicId);
+        if (topic != null) {
+            topic.subscribers.add(subscriberName);
+            showSubscriberCount(topicId);
+            try {
+                Socket subscriberSocket = subscriberSockets.get(subscriberName);
+                messageHandler.sendMessage(subscriberSocket, "SUCCESS|" + topic.name + "|" + topic.publisherName + "|" + topicId);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            try {
+                Socket subscriberSocket = subscriberSockets.get(subscriberName);
+                messageHandler.sendMessage(subscriberSocket, "FAILED|Topic not found");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Unsubscribe from a topic
+    public void unsubscribeTopic(String topicId, String subscriberName) {
+        System.out.println("Attempting to unsubscribe " + subscriberName + " from topic " + topicId);
+        Topic topic = topics.get(topicId);
+        if (topic != null) {
+            boolean removed = topic.subscribers.remove(subscriberName);
+            System.out.println("Subscriber removed from topic: " + removed);
+            try {
+                Socket subscriberSocket = subscriberSockets.get(subscriberName);
+                messageHandler.sendMessage(subscriberSocket, removed ? "SUCCESS" : "FAILED|Not subscribed to this topic");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Topic not found: " + topicId);
+            try {
+                Socket subscriberSocket = subscriberSockets.get(subscriberName);
+                messageHandler.sendMessage(subscriberSocket, "FAILED: Topic not found");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Inner class to represent a Topic
+    public static class Topic {
+        String id;
+        String name;
+        String publisherName;
+        Set<String> subscribers;
+
+        Topic(String id, String name, String publisherName) {
+            this.id = id;
+            this.name = name;
+            this.publisherName = publisherName;
+            this.subscribers = new HashSet<>();
+        }
+    }
+
     // Main method to run the broker
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -389,7 +403,7 @@ public class broker {
         });
     }
 
-    public void broadcastNewTopic(String topicId, String topicName, String publisherName) {
+    public void handleTopicBroadcast(String topicId, String topicName, String publisherName) {
         for (Map.Entry<String, Socket> entry : otherBrokers.entrySet()) {
             try {
                 Socket brokerSocket = entry.getValue();
@@ -404,9 +418,9 @@ public class broker {
             }
         }
     }
-    public void broadcastNewMessage(String topicId, String message, String sourcePort, String messageId) {
+    public void handleMessageBroadcast(String topicId, String message, String sourcePort, String messageId) {
         if (messageId == null) {
-            messageId = UUID.randomUUID().toString();
+            System.out.println("message没有id");
         }
         if (!processedMessages.contains(messageId)) {
             processedMessages.add(messageId);
@@ -424,19 +438,6 @@ public class broker {
                     System.out.println("Error broadcasting new message to broker: " + entry.getKey());
                     e.printStackTrace();
                 }
-            }
-        }
-    }
-    public void showSubscriberCount(String topicId) {
-        for (Map.Entry<String, Socket> entry : otherBrokers.entrySet()) {
-            try {
-                Socket brokerSocket = entry.getValue();
-                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                out.println("SHOW_SUBSCRIBER_COUNT");
-                out.println(topicId);
-            } catch (IOException e) {
-                System.out.println("Error showing subscriber count to broker: " + entry.getKey());
-                e.printStackTrace();
             }
         }
     }
