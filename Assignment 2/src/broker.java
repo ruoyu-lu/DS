@@ -89,7 +89,10 @@ public class broker {
                     String syncTopicId = reader.readLine();
                     String topicName = reader.readLine();
                     String publisherName = reader.readLine();
-                    syncTopic(syncTopicId, topicName, publisherName);
+                    if (!topics.containsKey(syncTopicId)) {
+                        topics.put(syncTopicId, new Topic(syncTopicId, topicName, publisherName));
+                        System.out.println("Synced new topic: " + syncTopicId + " - " + topicName);
+                    }
                     break;
                 case "BROADCAST_MESSAGE":
                     String broadcastTopicId = reader.readLine();
@@ -240,11 +243,6 @@ public class broker {
         }
     }
 
-    // Get all available topics
-    public List<Topic> getAllTopics() {
-        return new ArrayList<>(topics.values());
-    }
-
     // Inner class to represent a Topic
     public static class Topic {
         String id;
@@ -357,12 +355,6 @@ public class broker {
         brokerInstance.start();
     }
 
-    // 添加一个公共方法来获取端口
-    public int getPort() {
-        return port;
-    }
-
-    // 将 connectToBroker 方法改为 public
     public void connectToBroker(String brokerName, String ip, int port) {
         System.out.println("等待连接到 broker " + brokerName + " at " + ip + ":" + port);
         connectionExecutor.submit(() -> {
@@ -395,13 +387,6 @@ public class broker {
                 }
             }
         });
-    }
-
-    public void syncTopic(String topicId, String topicName, String publisherName) {
-        if (!topics.containsKey(topicId)) {
-            topics.put(topicId, new Topic(topicId, topicName, publisherName));
-            System.out.println("Synced new topic: " + topicId + " - " + topicName);
-        }
     }
 
     public void broadcastNewTopic(String topicId, String topicName, String publisherName) {
