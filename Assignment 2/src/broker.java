@@ -161,6 +161,14 @@ public class broker {
                     e.printStackTrace();
                 }
             }
+            // 发送成功消息给发布者
+            try {
+                Socket publisherSocket = publisherSockets.get(publisherName);
+                messageHandler.sendMessage(publisherSocket, "SUCCESS: Message published");
+            } catch (IOException e) {
+                System.out.println("Error sending success message to publisher: " + publisherName);
+                e.printStackTrace();
+            }
         } else {
             System.out.println("Topic not found: " + topicId);
             try {

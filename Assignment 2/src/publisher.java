@@ -6,6 +6,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class publisher {
     private String name;
@@ -13,6 +14,7 @@ public class publisher {
     private PrintWriter out;
     private BufferedReader in;
     private static final int MAX_MESSAGE_LENGTH = 100;
+    private BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
 
     public publisher(String name, String brokerAddress, int brokerPort) throws IOException {
         this.name = name;
@@ -38,20 +40,26 @@ public class publisher {
     }
 
     public void publishMessage(String topicId, String message) throws IOException {
-        if (message.length() > MAX_MESSAGE_LENGTH) {
-            System.out.println("Message is too long. The max length is " + MAX_MESSAGE_LENGTH + " characters.");
-            return;
-        }
         out.println("PUBLISH_MESSAGE");
         out.println(topicId);
         out.println(message);
-        String response = in.readLine();
-        if (response.equals("SUCCESS")) {
-            System.out.println("Message published: SUCCESS");
-        } else if (response.startsWith("ERROR:")) {
-            System.out.println("Message published: " + response);
+        String response = waitForResponse();
+        if (response.startsWith("SUCCESS")) {
+            System.out.println("Message published successfully");
         } else {
-            System.out.println("Unexpected response: " + response);
+            System.out.println("Failed to publish message: " + response);
+        }
+    }
+
+    private String waitForResponse() throws IOException {
+        try {
+            String message = messageQueue.poll(5, TimeUnit.SECONDS);
+            if (message == null) {
+                throw new IOException("Timeout waiting for response");
+            }
+            return message;
+        } catch (InterruptedException e) {
+            throw new IOException("Interrupted while waiting for response", e);
         }
     }
 
