@@ -56,21 +56,29 @@ public class publisher {
     }
 
     public void showSubscriberCount(String topicId) throws IOException {
+        System.out.println("Sending SHOW_SUBSCRIBER_COUNT request for topic: " + topicId);
         out.println("SHOW_SUBSCRIBER_COUNT");
         out.println(topicId);
-        String response = in.readLine();
-        if (response.startsWith("ERROR:")) {
-            System.out.println(response);
-        } else {
-            System.out.println("Topics and their subscriber counts:");
-            while (!response.equals("END")) {
-                String[] parts = response.split("\\|");
-                if (parts.length == 3) {
-                    System.out.printf("%s %s %s%n", parts[0], parts[1], parts[2]);
-                }
-                response = in.readLine();
+        System.out.println("Waiting for response...");
+        
+        String response;
+        while ((response = in.readLine()) != null) {
+            System.out.println("Received: " + response);
+            if (response.equals("END")) {
+                break;
+            }
+            if (response.startsWith("ERROR:")) {
+                System.out.println(response);
+                break;
+            }
+            String[] parts = response.split("\\|");
+            if (parts.length == 3) {
+                System.out.printf("Topic ID: %s, Name: %s, Subscribers: %s%n", parts[0], parts[1], parts[2]);
+            } else {
+                System.out.println("Unexpected response format: " + response);
             }
         }
+        System.out.println("Finished processing SHOW_SUBSCRIBER_COUNT response");
     }
 
     public void deleteTopic(String topicId) throws IOException {
@@ -167,6 +175,31 @@ public class publisher {
                 close();
             } catch (IOException e) {
                 System.out.println("Error closing connection: " + e.getMessage());
+            }
+        }
+    }
+
+    private void handleShowSubscriberCount(String topicId) throws IOException {
+        out.println("SHOW_SUBSCRIBER_COUNT");
+        out.println(topicId);
+
+        StringBuilder response = new StringBuilder();
+        String line;
+        while (!(line = in.readLine()).equals("END")) {
+            response.append(line).append("\n");
+        }
+
+        String result = response.toString().trim();
+        if (result.startsWith("ERROR")) {
+            System.out.println(result);
+        } else {
+            String[] parts = result.split("\\|");
+            if (parts.length == 3) {
+                System.out.println("Topic ID: " + parts[0]);
+                System.out.println("Topic Name: " + parts[1]);
+                System.out.println("Subscriber Count: " + parts[2]);
+            } else {
+                System.out.println("Unexpected response format: " + result);
             }
         }
     }

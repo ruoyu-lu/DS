@@ -9,7 +9,6 @@ import java.util.concurrent.*;
 import java.util.UUID;
 
 public class broker {
-    private static final int MAX_MESSAGE_LENGTH = 100;
     private static final int MAX_PUBLISHERS = 5;
     private static final int MAX_SUBSCRIBERS = 10;
 
@@ -124,15 +123,42 @@ public class broker {
                     String showTopicId = reader.readLine();
                     Topic topic = topics.get(showTopicId);
                     if (topic != null) {
-                        String count = showTopicId + "|" + topic.name + "|" + topic.subscribers.size() + "\n";
-                        messageHandler.sendMessage(brokerSocket, count + "END");
+                        int totalCount = topic.subscribers.size();
+                        for (Map.Entry<String, Socket> entry : otherBrokers.entrySet()) {
+                            try {
+                                brokerSocket = entry.getValue();
+                                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                                out.println("GET_SUBSCRIBER_COUNT");
+                                out.println(showTopicId);
+                                BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
+                                String brokerResponse = in.readLine();
+                                if (brokerResponse != null && !brokerResponse.startsWith("ERROR")) {
+                                    totalCount += Integer.parseInt(brokerResponse);
+                                }
+                            } catch (IOException e) {
+                                System.out.println("Error getting subscriber count from broker: " + entry.getKey());
+                                e.printStackTrace();
+                            }
+                        }
+                        String count = showTopicId + "|" + topic.name + "|" + totalCount + "\n";
+                        messageHandler.sendMessage(publisherSockets.get(brokerName), count + "END");
                     } else {
-                        messageHandler.sendMessage(brokerSocket, "ERROR: Topic not found");
+                        messageHandler.sendMessage(publisherSockets.get(brokerName), "ERROR: Topic not found");
                     }
                     break;
                 case "DELETE_TOPIC":
                     String delTopicId = reader.readLine();
                     deleteTopic(delTopicId);
+                    break;
+                case "GET_SUBSCRIBER_COUNT":
+                    String getTopicId = reader.readLine();
+                    Topic getTopic = topics.get(getTopicId);
+                    PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                    if (getTopic != null) {
+                        out.println(String.valueOf(getTopic.subscribers.size()));
+                    } else {
+                        out.println("ERROR: Topic not found");
+                    }
                     break;
             }
         }
@@ -156,13 +182,39 @@ public class broker {
                         publishMessage(msgTopicId, message, publisherName);
                         break;
                     case "SHOW_SUBSCRIBER_COUNT":
+                        System.out.println("Received SHOW_SUBSCRIBER_COUNT request from publisher: " + publisherName);
                         String showTopicId = reader.readLine();
+                        System.out.println("Requested topic ID: " + showTopicId);
                         Topic topic = topics.get(showTopicId);
                         if (topic != null && topic.publisherName.equals(publisherName)) {
-                            String count = showTopicId + "|" + topic.name + "|" + topic.subscribers.size() + "\n";
-                            messageHandler.sendMessage(publisherSockets.get(publisherName), count + "END");
+                            int totalCount = topic.subscribers.size();
+                            System.out.println("Local subscriber count: " + totalCount);
+                            // Request subscriber count from other brokers
+                            for (Map.Entry<String, Socket> entry : otherBrokers.entrySet()) {
+                                try {
+                                    Socket brokerSocket = entry.getValue();
+                                    PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                                    out.println("GET_SUBSCRIBER_COUNT");
+                                    out.println(showTopicId);
+                                    BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
+                                    String brokerResponse = in.readLine();
+                                    System.out.println("Response from broker " + entry.getKey() + ": " + brokerResponse);
+                                    if (brokerResponse != null && !brokerResponse.startsWith("ERROR")) {
+                                        totalCount += Integer.parseInt(brokerResponse);
+                                    }
+                                } catch (IOException e) {
+                                    System.out.println("Error getting subscriber count from broker: " + entry.getKey());
+                                    e.printStackTrace();
+                                }
+                            }
+                            String count = showTopicId + "|" + topic.name + "|" + totalCount;
+                            System.out.println("Sending response to publisher: " + count);
+                            messageHandler.sendMessage(publisherSockets.get(publisherName), count);
+                            messageHandler.sendMessage(publisherSockets.get(publisherName), "END");
                         } else {
+                            System.out.println("Topic not found or not owned by this publisher");
                             messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: Topic not found or not owned by this publisher");
+                            messageHandler.sendMessage(publisherSockets.get(publisherName), "END");
                         }
                         break;
                     case "DELETE_TOPIC":
@@ -420,7 +472,7 @@ public class broker {
     }
     public void handleMessageBroadcast(String topicId, String message, String sourcePort, String messageId) {
         if (messageId == null) {
-            System.out.println("message没有id");
+            messageId = UUID.randomUUID().toString();
         }
         if (!processedMessages.contains(messageId)) {
             processedMessages.add(messageId);

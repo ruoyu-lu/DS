@@ -25,6 +25,12 @@
 - 2024-10-18 v0.5.2: 修复了broker之间消息广播的循环问题，添加了消息ID和源broker标识以防止重复广播
 - 2024-10-19 v0.5.3: 进一步优化了broker之间的消息传递机制，解决了消息重复和循环广播的问题
 - 2024-10-20 v0.5.4: 修复了发布者不接收成功消息的问题，现在发布者可以收到消息发布成功的确认
+- 2024-10-21 v0.5.5: 改进了发布者的"Show Subscriber Count"功能,现在可以统计所有broker上的订阅者总数
+- 2024-10-22 v0.5.6: 修复了 publisher 使用 show 命令时卡住的问题，改进了 broker 和 publisher 之间的通信机制
+- 2024-10-23 v0.5.7: 添加了调试信息并改进了 broker 和 publisher 之间的通信机制，以解决 show 命令卡住的问题
+- 2024-10-24 v0.5.8: 修复了 broker 类中 SHOW_SUBSCRIBER_COUNT 处理中的变量重复问题
+- 2024-10-25 v0.5.9: 修复了 broker 间通信的问题，改进了 SHOW_SUBSCRIBER_COUNT 和 GET_SUBSCRIBER_COUNT 的处理逻辑
+- 2024-10-26 v0.6.0: 修复了 SHOW_SUBSCRIBER_COUNT 功能，确保 publisher 能正确接收到订阅者数量。改进了 broker 间通信和错误处理。
 
 ## 开发阶段使用说明
 
@@ -65,7 +71,10 @@
 1. 发布消息功能
 2. broker 并行和 Communication问题
 3. publisher 自定名字
-
+1. 优化跨broker的订阅者计数性能
+2. 实现订阅者计数的缓存机制
+3. 添加错误处理机制,以应对broker离线或网络问题的情况
+4. 进一步优化 publisher 和 broker 之间的通信，提高响应速度
 
 ## 注意事项
 
