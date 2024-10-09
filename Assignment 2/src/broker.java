@@ -199,6 +199,7 @@ public class broker {
                             System.out.println("Local subscriber count: " + totalCount);
                             // Request subscriber count from other brokers
                             for (Map.Entry<String, Socket> entry : otherBrokers.entrySet()) {
+                                System.out.println("other broker count:" + otherBrokers.size());
                                 String brokerKey = entry.getKey();
                                 if (!queriedBrokers.contains(brokerKey)) { // Check if already queried
                                     try {
