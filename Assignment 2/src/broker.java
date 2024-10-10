@@ -107,6 +107,9 @@ public class broker {
                 case "BROADCAST_MESSAGE":
                     handleBroadcastMessage(parts, brokerConn);
                     break;
+                case "DELETE_TOPIC":
+                    handleDeleteTopic(parts[1]);
+                    break;
                 // 添加其他消息类型的处理...
             }
         }
@@ -328,14 +331,18 @@ public class broker {
     public void deleteTopic(String topicId) {
         Topic topic = topics.remove(topicId);
         if (topic != null) {
+            // Notify subscribers
             for (String subscriber : topic.subscribers) {
                 try {
                     Socket subscriberSocket = subscriberSockets.get(subscriber);
-                    messageHandler.sendMessage(subscriberSocket, "Topic deleted: " + topic.name);
+                    messageHandler.sendMessage(subscriberSocket, "TOPIC_DELETED|" + topicId + "|" + topic.name);
                 } catch (IOException e) {
-
-                    e.printStackTrace();     }
+                    e.printStackTrace();
+                }
             }
+            
+            // Broadcast delete operation to other brokers
+            handleTopicDeleteBroadcast(topicId);
         }
     }
 
@@ -484,5 +491,32 @@ public class broker {
                 }
             }
         }
+    }
+
+    public void handleTopicDeleteBroadcast(String topicId) {
+        for (BrokerConnection brokerConn : otherBrokers.values()) {
+            try {
+                brokerConn.writer.println("DELETE_TOPIC|" + topicId);
+            } catch (Exception e) {
+                System.out.println("Error broadcasting topic deletion to broker");
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void handleDeleteTopic(String topicId) {
+        Topic topic = topics.remove(topicId);
+        if (topic != null) {
+            // Notify subscribers
+            for (String subscriber : topic.subscribers) {
+                try {
+                    Socket subscriberSocket = subscriberSockets.get(subscriber);
+                    messageHandler.sendMessage(subscriberSocket, "TOPIC_DELETED|" + topicId + "|" + topic.name);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        System.out.println("Deleted topic: " + topicId + " due to broadcast from another broker");
     }
 }
