@@ -237,8 +237,8 @@ public class broker {
                         break;
                     case "DELETE_TOPIC":
                         String delTopicId = reader.readLine();
-                        String deleteResponse = deleteTopic(delTopicId, publisherName);
-                        messageHandler.sendMessage(publisherSockets.get(publisherName), deleteResponse);
+                        deleteTopic(delTopicId);
+                        messageHandler.sendMessage(publisherSockets.get(publisherName), "Topic deleted");
                         break;
                 }
             }
@@ -331,30 +331,22 @@ public class broker {
     }
 
     // Delete a topic
-    public String deleteTopic(String topicId, String publisherName) {
-        Topic topic = topics.get(topicId);
-        if (topic == null) {
-            return "ERROR: Topic not found";
-        }
-        if (!topic.publisherName.equals(publisherName)) {
-            return "ERROR: You don't have permission to delete this topic";
-        }
-        
-        topics.remove(topicId);
-        // Notify subscribers
-        for (String subscriber : topic.subscribers) {
-            try {
-                Socket subscriberSocket = subscriberSockets.get(subscriber);
-                messageHandler.sendMessage(subscriberSocket, "TOPIC_DELETED|" + topicId + "|" + topic.name);
-            } catch (IOException e) {
-                e.printStackTrace();
+    public void deleteTopic(String topicId) {
+        Topic topic = topics.remove(topicId);
+        if (topic != null) {
+            // Notify subscribers
+            for (String subscriber : topic.subscribers) {
+                try {
+                    Socket subscriberSocket = subscriberSockets.get(subscriber);
+                    messageHandler.sendMessage(subscriberSocket, "TOPIC_DELETED|" + topicId + "|" + topic.name);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
+            
+            // Broadcast delete operation to other brokers
+            handleTopicDeleteBroadcast(topicId);
         }
-        
-        // Broadcast delete operation to other brokers
-        handleTopicDeleteBroadcast(topicId);
-        
-        return "SUCCESS: Topic deleted";
     }
 
     // Subscribe to a topic
