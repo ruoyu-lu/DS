@@ -26,15 +26,10 @@ public class publisher {
         out.println(name);
     }
 
-    public void createTopic(String topicInfo) throws IOException {
-        String[] parts = topicInfo.split(" ", 2);
-        if (parts.length != 2) {
-            System.out.println("Invalid topic format. Please use 'topic_id topic_name'.");
-            return;
-        }
+    public void createTopic(String topicId, String topicName) throws IOException {
         out.println("CREATE_TOPIC");
-        out.println(parts[0]); // topic_id
-        out.println(parts[1]); // topic_name
+        out.println(topicId);
+        out.println(topicName);
         String response = in.readLine();
         System.out.println(response);
     }
@@ -70,12 +65,13 @@ public class publisher {
                 System.out.println(response);
                 break;
             }
-            String[] parts = response.split("\\|");
-            if (parts.length == 3) {
-                System.out.printf("%s %s %s%n", parts[0], parts[1], parts[2]);
-            } else {
-                System.out.println("Unexpected response format: " + response);
-            }
+            // String[] parts = response.split("\\|");
+            // if (parts.length == 3) {
+            //     System.out.printf("%s %s %s%n", parts[0], parts[1], parts[2]);
+            // } else {
+            //     System.out.println("Unexpected response format: " + response);
+            // }
+            System.out.println(response);
         }
         // System.out.println("Finished processing SHOW_SUBSCRIBER_COUNT response");
     }
@@ -84,7 +80,7 @@ public class publisher {
         out.println("DELETE_TOPIC");
         out.println(topicId);
         String response = in.readLine();
-        System.out.println("Topic deleted: " + response);
+        System.out.println(response);
     }
 
     public void close() throws IOException {
@@ -136,7 +132,7 @@ public class publisher {
                                 System.out.println("Invalid format. Use: create {topic_id} {topic_name}");
                                 break;
                             }
-                            createTopic(parts[1] + " " + parts[2]);
+                            createTopic(parts[1], parts[2]);
                             break;
                         case "publish":
                             if (parts.length != 3) {

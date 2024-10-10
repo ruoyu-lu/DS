@@ -300,7 +300,7 @@ public class broker {
         }
         topics.put(topicId, new Topic(topicId, topicName, publisherName));
         handleTopicBroadcast(topicId, topicName, publisherName);
-        return "SUCCESS: Topic created";
+        return "SUCCESS: Topic created with ID: " + topicId;
     }
 
     // Publish a message to a topic
@@ -378,7 +378,7 @@ public class broker {
         // Broadcast delete operation to other brokers
         handleTopicDeleteBroadcast(topicId);
         
-        return "SUCCESS: Topic deleted";
+        return "SUCCESS: Topic deleted with ID: " + topicId;
     }
 
     private void handleSyncUnsubscribe(String[] parts) {
