@@ -64,13 +64,9 @@ public class subscriber {
     }
 
     public void showCurrentSubscriptions() {
-        System.out.println("Current subscriptions:");
-        for (String topicId : subscriptions) {
-            String details = subscriptionDetails.get(topicId);
-            if (details != null) {
-                String[] parts = details.split("\\|");
-                System.out.printf("%s %s %s%n", topicId, parts[0], parts[1]);
-            }
+        System.out.println("Current Subscriptions:");
+        for (Map.Entry<String, String> entry : subscriptionDetails.entrySet()) {
+            System.out.println(entry.getValue());
         }
     }
 
@@ -97,14 +93,35 @@ public class subscriber {
                     // 检查消息是否符合新的格式（以日期时间开头）
                     if (message.matches("\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}.*")) {
                         System.out.println(message);
-                    } else {
+                    }
+                    if (message.startsWith("TOPIC_DELETED|")) {
+                        handleTopicDeleted(message);
+                    }else{
                         messageQueue.put(message);
                     }
                 }
+                // while (isRunning && (message = in.readLine()) != null) {
+                //     if (message.startsWith("TOPIC_DELETED|")) {
+                //         handleTopicDeleted(message);
+                //     } else {
+                //         messageQueue.put(message);
+                //     }
+                // }
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    private void handleTopicDeleted(String message) {
+        String[] parts = message.split("\\|");
+        if (parts.length == 3) {
+            String topicId = parts[1];
+            String topicName = parts[2];
+            subscriptions.remove(topicId);
+            subscriptionDetails.remove(topicId);
+            System.out.println("Topic deleted: " + topicName + " (ID: " + topicId + ")");
+        }
     }
 
     private String waitForResponse() throws IOException {
@@ -117,11 +134,6 @@ public class subscriber {
         } catch (InterruptedException e) {
             throw new IOException("Interrupted while waiting for response", e);
         }
-    }
-
-    public void close() throws IOException {
-        isRunning = false;
-        brokerSocket.close();
     }
 
     public static void main(String[] args) {
