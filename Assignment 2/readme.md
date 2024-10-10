@@ -10,6 +10,7 @@
  -2024.10.15 实现了topic删除的broker间同步，确保所有broker的topic列表一致性
  -2024.10.16 修复了subscriber在topic被删除后仍能看到已订阅的已删除topic的问题
  -2024.10.17 实现了subscriber取消订阅功能，并确保broker间同步这些信息，使publisher能看到准确的订阅者数量
+ -2024.10.18 修复了publisher可以删除其他publisher创建的topic的问题，增加了topic删除的权限验证
 
 ## 开发阶段使用说明
 
@@ -61,3 +62,4 @@
 - 定期检查和清理 processedMessages 集合，以防止内存泄漏。
 - 在进行大规模部署之前，务必进行充分的测试，特别是针对broker间通信的稳定性和性能。
 - 确保在取消订阅时正确更新所有相关的broker和publisher。
+- 确保只有创建topic的publisher才能删除该topic。
