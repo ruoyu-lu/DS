@@ -110,6 +110,9 @@ public class broker {
                 case "DELETE_TOPIC":
                     handleDeleteTopic(parts[1]);
                     break;
+                case "SYNC_UNSUBSCRIBE":
+                    handleSyncUnsubscribe(parts);
+                    break;
                 // 添加其他消息类型的处理...
             }
         }
@@ -381,6 +384,16 @@ public class broker {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            
+            // Synchronize with other brokers
+            for (BrokerConnection brokerConn : otherBrokers.values()) {
+                try {
+                    brokerConn.writer.println("SYNC_UNSUBSCRIBE|" + topicId + "|" + subscriberName);
+                } catch (Exception e) {
+                    System.out.println("Error syncing unsubscribe with other broker");
+                    e.printStackTrace();
+                }
+            }
         } else {
             System.out.println("Topic not found: " + topicId);
             try {
@@ -389,6 +402,16 @@ public class broker {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void handleSyncUnsubscribe(String[] parts) {
+        String topicId = parts[1];
+        String subscriberName = parts[2];
+        Topic topic = topics.get(topicId);
+        if (topic != null) {
+            topic.subscribers.remove(subscriberName);
+            System.out.println("Synced unsubscribe: " + subscriberName + " from topic " + topicId);
         }
     }
 
