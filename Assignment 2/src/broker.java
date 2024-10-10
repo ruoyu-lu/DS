@@ -125,7 +125,7 @@ public class broker {
     private void handleGetSubscriberCount(String[] parts, BrokerConnection brokerConn) throws IOException {
         String topicId = parts[1];
         int count = getLocalSubscriberCount(topicId);
-        brokerConn.writer.println("SUBSCRIBER_COUNT|" + topicId + "|" + count);
+        brokerConn.writer.println(count);
     }
 
     private void handleSubscriberCountResponse(String[] parts) {
