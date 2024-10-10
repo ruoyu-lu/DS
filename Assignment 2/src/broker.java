@@ -17,10 +17,22 @@ public class broker {
     private Map<String, Socket> publisherSockets;
     private Map<String, Socket> subscriberSockets;
     private ExecutorService executorService;
-    private Map<Integer, Socket> otherBrokers;
+    private Map<Integer, BrokerConnection> otherBrokers;
     private ExecutorService connectionExecutor;
     private Set<String> processedMessages = ConcurrentHashMap.newKeySet();
     private Set<Integer> queriedBrokers = new HashSet<>();
+
+    private static class BrokerConnection {
+        Socket socket;
+        BufferedReader reader;
+        PrintWriter writer;
+
+        BrokerConnection(Socket socket) throws IOException {
+            this.socket = socket;
+            this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.writer = new PrintWriter(socket.getOutputStream(), true);
+        }
+    }
 
     public broker(int port) {
         this.port = port;
@@ -52,7 +64,7 @@ public class broker {
             String clientType = reader.readLine();
 
             if ("BROKER".equals(clientType)) {
-                handleBrokerConnection(clientSocket, reader);
+                handleBrokerConnection(new BrokerConnection(clientSocket));
             } else if ("PUBLISHER".equals(clientType)) {
                 String clientName = reader.readLine();
                 if (publisherSockets.size() < MAX_PUBLISHERS) {
@@ -77,99 +89,82 @@ public class broker {
         }
     }
 
-    private void handleBrokerConnection(Socket brokerSocket, BufferedReader reader) throws IOException {
-        String brokerName = reader.readLine();
-        otherBrokers.put(Integer.parseInt(brokerName), brokerSocket);
-        System.out.println("Connected to broker: " + brokerName);
-
-        String request;
-        while ((request = reader.readLine()) != null) {
-            switch (request) {
+    private void handleBrokerConnection(BrokerConnection brokerConn) throws IOException {
+        String line;
+        while ((line = brokerConn.reader.readLine()) != null) {
+            String[] parts = line.split("\\|");
+            String messageType = parts[0];
+            switch (messageType) {
                 case "SYNC_TOPIC":
-                    String syncTopicId = reader.readLine();
-                    String topicName = reader.readLine();
-                    String publisherName = reader.readLine();
-                    if (!topics.containsKey(syncTopicId)) {
-                        topics.put(syncTopicId, new Topic(syncTopicId, topicName, publisherName));
-                        System.out.println("Synced new topic: " + syncTopicId + " - " + topicName);
-                    }
-                    break;
-                case "BROADCAST_MESSAGE":
-                    String broadcastTopicId = reader.readLine();
-                    String message = reader.readLine();
-                    String messageId = reader.readLine();
-                    String sourcePort = reader.readLine();
-                    if (!processedMessages.contains(messageId)) {
-                        processedMessages.add(messageId);
-                        System.out.println("Received broadcast message for topic " + broadcastTopicId + ": " + message);
-                        handleMessageBroadcast(broadcastTopicId, message, sourcePort, messageId);
-                        // 处理消息，例如发送给订阅者
-                        Topic topic = topics.get(broadcastTopicId);
-                        if (topic != null) {
-                            for (String subscriber : topic.subscribers) {
-                                try {
-                                    Socket subscriberSocket = subscriberSockets.get(subscriber);
-                                    if (subscriberSocket != null && subscriberSocket.isConnected()) {
-                                        messageHandler.sendMessage(subscriberSocket, message);
-                                    }
-                                } catch (IOException e) {
-                                    System.out.println("Error sending message to subscriber: " + subscriber);
-                                    e.printStackTrace();
-                                }
-                            }
-                        }
-                    }
-                    break;
-                case "SHOW_SUBSCRIBER_COUNT":
-                    String showTopicId = reader.readLine();
-                    Topic topic = topics.get(showTopicId);
-                    PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                    if (topic != null) {
-                        int totalCount = topic.subscribers.size();
-                        // 请求其他 broker 的订阅者数量
-                        for (Map.Entry<Integer, Socket> entry : otherBrokers.entrySet()) {
-                            int brokerPort = entry.getKey();
-                            if (!queriedBrokers.contains(brokerPort)) {
-                                try {
-                                    Socket otherBrokerSocket = entry.getValue();
-                                    otherBrokerSocket.setSoTimeout(5000); // 设置超时
-                                    PrintWriter otherOut = new PrintWriter(otherBrokerSocket.getOutputStream(), true);
-                                    BufferedReader otherIn = new BufferedReader(new InputStreamReader(otherBrokerSocket.getInputStream()));
-                                    otherOut.println("GET_SUBSCRIBER_COUNT");
-                                    otherOut.println(showTopicId);
-                                    String brokerResponse = otherIn.readLine();
-                                    if (brokerResponse != null && !brokerResponse.startsWith("ERROR")) {
-                                        totalCount += Integer.parseInt(brokerResponse);
-                                    }
-                                    queriedBrokers.add(brokerPort);
-                                } catch (IOException e) {
-                                    System.out.println("Error getting subscriber count from broker: " + brokerPort);
-                                    e.printStackTrace();
-                                    queriedBrokers.add(brokerPort); // 将出错的 broker 也添加到 queriedBrokers 中
-                                }
-                            }
-                        }
-                        out.println(totalCount);
-                    } else {
-                        out.println("ERROR: Topic not found");
-                    }
-                    break;
-                case "DELETE_TOPIC":
-                    String delTopicId = reader.readLine();
-                    deleteTopic(delTopicId);
+                    handleSyncTopic(parts, brokerConn);
                     break;
                 case "GET_SUBSCRIBER_COUNT":
-                    String getTopicId = reader.readLine();
-                    topic = topics.get(getTopicId);
-                    out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                    if (topic != null) {
-                        out.println(String.valueOf(topic.subscribers.size()));
-                    } else {
-                        out.println("ERROR: Topic not found");
-                    }
+                    handleGetSubscriberCount(parts, brokerConn);
                     break;
+                case "SUBSCRIBER_COUNT":
+                    handleSubscriberCountResponse(parts);
+                    break;
+                case "BROADCAST_MESSAGE":
+                    handleBroadcastMessage(parts, brokerConn);
+                    break;
+                // 添加其他消息类型的处理...
             }
         }
+    }
+
+    private void handleSyncTopic(String[] parts, BrokerConnection brokerConn) {
+        String syncTopicId = parts[1];
+        String topicName = parts[2];
+        String publisherName = parts[3];
+        if (!topics.containsKey(syncTopicId)) {
+            topics.put(syncTopicId, new Topic(syncTopicId, topicName, publisherName));
+            System.out.println("Synced new topic: " + syncTopicId + " - " + topicName);
+        }
+    }
+
+    private void handleGetSubscriberCount(String[] parts, BrokerConnection brokerConn) throws IOException {
+        String topicId = parts[1];
+        int count = getLocalSubscriberCount(topicId);
+        brokerConn.writer.println("SUBSCRIBER_COUNT|" + topicId + "|" + count);
+    }
+
+    private void handleSubscriberCountResponse(String[] parts) {
+        String topicId = parts[1];
+        int count = Integer.parseInt(parts[2]);
+        // 处理订阅者数量响应，例如更新总数或通知等待的线程
+    }
+
+    private void handleBroadcastMessage(String[] parts, BrokerConnection brokerConn) throws IOException {
+        String topicId = parts[1];
+        String message = parts[2];
+        String messageId = parts[3];
+        String sourcePort = parts[4];
+        if (!processedMessages.contains(messageId)) {
+            processedMessages.add(messageId);
+            System.out.println("Received broadcast message for topic " + topicId + ": " + message);
+            handleMessageBroadcast(topicId, message, sourcePort, messageId);
+            // 处理消息，例如发送给订阅者
+            Topic topic = topics.get(topicId);
+            if (topic != null) {
+                for (String subscriber : topic.subscribers) {
+                    try {
+                        Socket subscriberSocket = subscriberSockets.get(subscriber);
+                        if (subscriberSocket != null && subscriberSocket.isConnected()) {
+                            PrintWriter out = new PrintWriter(subscriberSocket.getOutputStream(), true);
+                            out.println(message);
+                        }
+                    } catch (IOException e) {
+                        System.out.println("Error sending message to subscriber: " + subscriber);
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+
+    private int getLocalSubscriberCount(String topicId) {
+        Topic topic = topics.get(topicId);
+        return topic != null ? topic.subscribers.size() : 0;
     }
 
     // Handle publisher requests
@@ -197,60 +192,42 @@ public class broker {
                         if (topic != null && topic.publisherName.equals(publisherName)) {
                             int totalCount = topic.subscribers.size();
                             System.out.println("Local subscriber count: " + totalCount);
-                            // Request subscriber count from other brokers
                             System.out.println("Other broker count: " + otherBrokers.size());
-                            for (Map.Entry<Integer, Socket> entry : otherBrokers.entrySet()) {
+                            for (Map.Entry<Integer, BrokerConnection> entry : otherBrokers.entrySet()) {
                                 int brokerPort = entry.getKey();
-                                if (!queriedBrokers.contains(brokerPort)) { // Check if already queried
+                                if (!queriedBrokers.contains(brokerPort)) {
                                     try {
-                                        Socket brokerSocket = entry.getValue();
-                                        PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                                        out.println("GET_SUBSCRIBER_COUNT");
-                                        out.println(showTopicId);
-
-                                        BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
-
-                                        // Use an ExecutorService to handle the read with a timeout
-                                        ExecutorService executor = Executors.newSingleThreadExecutor();
-                                        Future<String> future = executor.submit(() -> in.readLine());
-
-                                        String brokerResponse = null;
-                                        try {
-                                            // Set the timeout duration as needed (e.g., 5 seconds)
-                                            brokerResponse = future.get(1, TimeUnit.SECONDS);
-                                        } catch (TimeoutException e) {
-                                            System.out.println("Timed out waiting for response from broker: " + brokerPort);
-                                            future.cancel(true);
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
-                                        } finally {
-                                            executor.shutdownNow();
-                                        }
-
-                                        if (brokerResponse != null) {
-                                            System.out.println("Response from broker " + brokerPort + ": " + brokerResponse);
-                                            if (!brokerResponse.startsWith("ERROR")) {
-                                                totalCount += Integer.parseInt(brokerResponse);
+                                        BrokerConnection brokerConn = entry.getValue();
+                                        brokerConn.writer.println("GET_SUBSCRIBER_COUNT|" + showTopicId);
+                                        String brokerResponse = brokerConn.reader.readLine();
+                                        System.out.println("Response from broker " + brokerPort + ": " + brokerResponse);
+                                        
+                                        if (brokerResponse != null && !brokerResponse.startsWith("ERROR")) {
+                                            try {
+                                                int count = Integer.parseInt(brokerResponse.trim());
+                                                totalCount += count;
+                                            } catch (NumberFormatException e) {
+                                                System.out.println("Invalid response from broker " + brokerPort + ": " + brokerResponse);
                                             }
                                         }
-
-                                        queriedBrokers.add(brokerPort); // Add to queried brokers set
+                                        
+                                        queriedBrokers.add(brokerPort);
                                     } catch (IOException e) {
                                         System.out.println("Error getting subscriber count from broker: " + brokerPort);
                                         e.printStackTrace();
                                     }
                                 }
                             }
-                            String count = showTopicId + "|" + topic.name + "|" + totalCount;
-                            System.out.println("Sending response to publisher: " + count);
-                            messageHandler.sendMessage(publisherSockets.get(publisherName), count);
-                            messageHandler.sendMessage(publisherSockets.get(publisherName), "END");  // 发送 END 表示结果发送完毕
+                            response = showTopicId + "|" + topic.name + "|" + totalCount;
+                            System.out.println("Sending response to publisher: " + response);
+                            messageHandler.sendMessage(publisherSockets.get(publisherName), response);
+                            messageHandler.sendMessage(publisherSockets.get(publisherName), "END");
                         } else {
                             System.out.println("Topic not found or not owned by this publisher");
                             messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: Topic not found or not owned by this publisher");
-                            messageHandler.sendMessage(publisherSockets.get(publisherName), "END");  // 发送 END 表示结果发送完毕
+                            messageHandler.sendMessage(publisherSockets.get(publisherName), "END");
                         }
-                        queriedBrokers.clear(); // 清空 queriedBrokers，以便下一次请求重新查询
+                        queriedBrokers.clear();
                         break;
                     case "DELETE_TOPIC":
                         String delTopicId = reader.readLine();
@@ -340,16 +317,10 @@ public class broker {
     }
 
     public void showSubscriberCount(String topicId) {
-        for (Map.Entry<Integer, Socket> entry : otherBrokers.entrySet()) {
-            try {
-                Socket brokerSocket = entry.getValue();
-                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                out.println("SHOW_SUBSCRIBER_COUNT");
-                out.println(topicId);
-            } catch (IOException e) {
-                System.out.println("Error showing subscriber count to broker: " + entry.getKey());
-                e.printStackTrace();
-            }
+        for (Map.Entry<Integer, BrokerConnection> entry : otherBrokers.entrySet()) {
+                BrokerConnection brokerConn = entry.getValue();
+                brokerConn.writer.println("SHOW_SUBSCRIBER_COUNT|" + topicId);
+            
         }
     }
 
@@ -465,15 +436,12 @@ public class broker {
                     PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                     out.println("BROKER");
                     out.println(this.port); // 发送自己的端口号作为标识
-                    otherBrokers.put(port, socket);
+                    otherBrokers.put(port, new BrokerConnection(socket));
                     System.out.println("成功连接到 broker " + brokerName + " at " + ip + ":" + port);
 
                     // 连接成功后，同步现有的topics
                     for (Topic topic : topics.values()) {
-                        out.println("SYNC_TOPIC");
-                        out.println(topic.id);
-                        out.println(topic.name);
-                        out.println(topic.publisherName);
+                        out.println("SYNC_TOPIC|" + topic.id + "|" + topic.name + "|" + topic.publisherName);
                     }
 
                     break;
@@ -491,16 +459,11 @@ public class broker {
     }
 
     public void handleTopicBroadcast(String topicId, String topicName, String publisherName) {
-        for (Map.Entry<Integer, Socket> entry : otherBrokers.entrySet()) {
+        for (BrokerConnection brokerConn : otherBrokers.values()) {
             try {
-                Socket brokerSocket = entry.getValue();
-                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                out.println("SYNC_TOPIC");
-                out.println(topicId);
-                out.println(topicName);
-                out.println(publisherName);
-            } catch (IOException e) {
-                System.out.println("Error broadcasting new topic to broker: " + entry.getKey());
+                brokerConn.writer.println("SYNC_TOPIC|" + topicId + "|" + topicName + "|" + publisherName);
+            } catch (Exception e) {
+                System.out.println("Error broadcasting new topic to broker");
                 e.printStackTrace();
             }
         }
@@ -512,17 +475,11 @@ public class broker {
         if (!processedMessages.contains(messageId)) {
             processedMessages.add(messageId);
             System.out.println("Broadcasting message to other brokers: " + message);
-            for (Map.Entry<Integer, Socket> entry : otherBrokers.entrySet()) {
+            for (BrokerConnection brokerConn : otherBrokers.values()) {
                 try {
-                    Socket brokerSocket = entry.getValue();
-                    PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                    out.println("BROADCAST_MESSAGE");
-                    out.println(topicId);
-                    out.println(message);
-                    out.println(messageId);
-                    out.println(sourcePort);
-                } catch (IOException e) {
-                    System.out.println("Error broadcasting new message to broker: " + entry.getKey());
+                    brokerConn.writer.println("BROADCAST_MESSAGE|" + topicId + "|" + message + "|" + messageId + "|" + sourcePort);
+                } catch (Exception e) {
+                    System.out.println("Error broadcasting new message to broker");
                     e.printStackTrace();
                 }
             }
