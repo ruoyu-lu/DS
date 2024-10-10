@@ -16,7 +16,7 @@ public class subscriber {
     private Set<String> subscriptions;
     private boolean isRunning;
     private BlockingQueue<String> messageQueue;
-    private Map<String, String> subscriptionDetails; // 新增字段来存储订阅详情
+    private Map<String, String> subscriptionDetails; 
 
     public subscriber(String name, String brokerAddress, int brokerPort) throws IOException {
         this.name = name;
@@ -26,7 +26,7 @@ public class subscriber {
         this.subscriptions = new HashSet<>();
         this.isRunning = true;
         this.messageQueue = new LinkedBlockingQueue<>();
-        this.subscriptionDetails = new HashMap<>(); // 初始化新字段
+        this.subscriptionDetails = new HashMap<>();
         startListening();
         out.println("SUBSCRIBER");
         out.println(name);
@@ -90,7 +90,7 @@ public class subscriber {
             try {
                 String message;
                 while (isRunning && (message = in.readLine()) != null) {
-                    // 检查消息是否符合新的格式（以日期时间开头）
+                    // check if the message is a time-stamped message
                     if (message.matches("\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}.*")) {
                         System.out.println(message);
                     }

@@ -222,7 +222,7 @@ public class broker {
                                     }
                                 }
                             }
-                            response = showTopicId + "|" + topic.name + "|" + totalCount;
+                            response = showTopicId + " " + topic.name + " " + totalCount;
                             System.out.println("Sending response to publisher: " + response);
                             messageHandler.sendMessage(publisherSockets.get(publisherName), response);
                             messageHandler.sendMessage(publisherSockets.get(publisherName), "END");
@@ -235,8 +235,8 @@ public class broker {
                         break;
                     case "DELETE_TOPIC":
                         String delTopicId = reader.readLine();
-                        deleteTopic(delTopicId);
-                        messageHandler.sendMessage(publisherSockets.get(publisherName), "Topic deleted");
+                        String deleteResponse = deleteTopic(delTopicId, publisherName);
+                        messageHandler.sendMessage(publisherSockets.get(publisherName), deleteResponse);
                         break;
                 }
             }
@@ -263,15 +263,32 @@ public class broker {
                         break;
                     case "SUBSCRIBE_TOPIC":
                         String subTopicId = reader.readLine();
-                        subscribeTopic(subTopicId, subscriberName);
+                        Topic topic = topics.get(subTopicId);
+                        if (topic != null) {
+                            topic.subscribers.add(subscriberName);
+                            messageHandler.sendMessage(subscriberSockets.get(subscriberName), 
+                                "SUCCESS|" + topic.name + "|" + topic.publisherName + "|" + subTopicId);
+                        } else {
+                            messageHandler.sendMessage(subscriberSockets.get(subscriberName), 
+                                "FAILED|Topic not found");
+                        }
                         break;
                     case "UNSUBSCRIBE_TOPIC":
                         String unsubTopicId = reader.readLine();
-                        unsubscribeTopic(unsubTopicId, subscriberName);
+                        Topic unsubTopic = topics.get(unsubTopicId);
+                        if (unsubTopic != null) {
+                            boolean removed = unsubTopic.subscribers.remove(subscriberName);
+                            messageHandler.sendMessage(subscriberSockets.get(subscriberName), 
+                                removed ? "SUCCESS" : "FAILED|Not subscribed to this topic");
+                        } else {
+                            messageHandler.sendMessage(subscriberSockets.get(subscriberName), 
+                                "FAILED|Topic not found");
+                        }
                         break;
                 }
             }
         } catch (IOException e) {
+            System.out.println("Error handling subscriber: " + subscriberName);
             e.printStackTrace();
         }
     }
@@ -290,6 +307,15 @@ public class broker {
     public void publishMessage(String topicId, String message, String publisherName) {
         Topic topic = topics.get(topicId);
         if (topic != null) {
+            if (!topic.publisherName.equals(publisherName)) {
+                System.out.println("Error: Publisher " + publisherName + " is not authorized to publish to topic " + topicId);
+                try {
+                    messageHandler.sendMessage(publisherSockets.get(publisherName), "ERROR: You are not authorized to publish to this topic");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
             String formattedMessage = messageHandler.formatMessage(topicId, topic.name, publisherName, message);
             System.out.println("Publishing message to topic " + topicId + ": " + formattedMessage);
             handleMessageBroadcast(topicId, formattedMessage, String.valueOf(this.port), null);
@@ -329,78 +355,30 @@ public class broker {
     }
 
     // Delete a topic
-    public void deleteTopic(String topicId) {
-        Topic topic = topics.remove(topicId);
-        if (topic != null) {
-            // Notify subscribers
-            for (String subscriber : topic.subscribers) {
-                try {
-                    Socket subscriberSocket = subscriberSockets.get(subscriber);
-                    messageHandler.sendMessage(subscriberSocket, "TOPIC_DELETED|" + topicId + "|" + topic.name);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            
-            // Broadcast delete operation to other brokers
-            handleTopicDeleteBroadcast(topicId);
-        }
-    }
-
-    // Subscribe to a topic
-    public void subscribeTopic(String topicId, String subscriberName) {
+    public String deleteTopic(String topicId, String publisherName) {
         Topic topic = topics.get(topicId);
-        if (topic != null) {
-            topic.subscribers.add(subscriberName);
-            showSubscriberCount(topicId);
+        if (topic == null) {
+            return "ERROR: Topic not found";
+        }
+        if (!topic.publisherName.equals(publisherName)) {
+            return "ERROR: You don't have permission to delete this topic";
+        }
+        
+        topics.remove(topicId);
+        // Notify subscribers
+        for (String subscriber : topic.subscribers) {
             try {
-                Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, "SUCCESS|" + topic.name + "|" + topic.publisherName + "|" + topicId);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } else {
-            try {
-                Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, "FAILED|Topic not found");
+                Socket subscriberSocket = subscriberSockets.get(subscriber);
+                messageHandler.sendMessage(subscriberSocket, "TOPIC_DELETED|" + topicId + "|" + topic.name);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-    }
-
-    // Unsubscribe from a topic
-    public void unsubscribeTopic(String topicId, String subscriberName) {
-        System.out.println("Attempting to unsubscribe " + subscriberName + " from topic " + topicId);
-        Topic topic = topics.get(topicId);
-        if (topic != null) {
-            boolean removed = topic.subscribers.remove(subscriberName);
-            System.out.println("Subscriber removed from topic: " + removed);
-            try {
-                Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, removed ? "SUCCESS" : "FAILED|Not subscribed to this topic");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            
-            // Synchronize with other brokers
-            for (BrokerConnection brokerConn : otherBrokers.values()) {
-                try {
-                    brokerConn.writer.println("SYNC_UNSUBSCRIBE|" + topicId + "|" + subscriberName);
-                } catch (Exception e) {
-                    System.out.println("Error syncing unsubscribe with other broker");
-                    e.printStackTrace();
-                }
-            }
-        } else {
-            System.out.println("Topic not found: " + topicId);
-            try {
-                Socket subscriberSocket = subscriberSockets.get(subscriberName);
-                messageHandler.sendMessage(subscriberSocket, "FAILED: Topic not found");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        
+        // Broadcast delete operation to other brokers
+        handleTopicDeleteBroadcast(topicId);
+        
+        return "SUCCESS: Topic deleted";
     }
 
     private void handleSyncUnsubscribe(String[] parts) {
@@ -431,7 +409,7 @@ public class broker {
     // Main method to run the broker
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.out.println("用法: java -jar broker.jar <port> [-b <broker_ip_1:port1> <broker_ip_2:port2> ...]");
+            System.out.println("Usage: java -jar broker.jar <port> [-b <broker_ip_1:port1> <broker_ip_2:port2> ...]");
             return;
         }
 
@@ -442,7 +420,7 @@ public class broker {
             for (int i = 2; i < args.length; i++) {
                 String[] brokerInfo = args[i].split(":");
                 if (brokerInfo.length != 2) {
-                    System.out.println("错误的 broker 信息格式: " + args[i]);
+                    System.out.println("Invalid broker information format: " + args[i]);
                     continue;
                 }
                 String ip = brokerInfo[0];
@@ -456,7 +434,7 @@ public class broker {
     }
 
     public void connectToBroker(String brokerName, String ip, int port) {
-        System.out.println("等待连接到 broker " + brokerName + " at " + ip + ":" + port);
+        System.out.println("Waiting to connect to broker " + brokerName + " at " + ip + ":" + port);
         connectionExecutor.submit(() -> {
             while (true) {
                 try {
@@ -465,7 +443,7 @@ public class broker {
                     out.println("BROKER");
                     out.println(this.port); // 发送自己的端口号作为标识
                     otherBrokers.put(port, new BrokerConnection(socket));
-                    System.out.println("成功连接到 broker " + brokerName + " at " + ip + ":" + port);
+                    System.out.println("Successfully connected to broker " + brokerName + " at " + ip + ":" + port);
 
                     // 连接成功后，同步现有的topics
                     for (Topic topic : topics.values()) {
