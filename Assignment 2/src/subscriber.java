@@ -125,15 +125,14 @@ public class subscriber {
     }
 
     public static void main(String[] args) {
-        String username = "DefaultSubscriber";
-        String brokerIp = "localhost";
-        int brokerPort = 8080;
-
-        if (args.length == 3) {
-            username = args[0];
-            brokerIp = args[1];
-            brokerPort = Integer.parseInt(args[2]);
+        if (args.length != 3) {
+            System.out.println("用法: java -jar subscriber.jar username broker_ip broker_port");
+            return;
         }
+
+        String username = args[0];
+        String brokerIp = args[1];
+        int brokerPort = Integer.parseInt(args[2]);
 
         try {
             subscriber sub = new subscriber(username, brokerIp, brokerPort);

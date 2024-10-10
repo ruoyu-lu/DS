@@ -6,6 +6,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class publisher {
     private String name;
@@ -13,6 +14,7 @@ public class publisher {
     private PrintWriter out;
     private BufferedReader in;
     private static final int MAX_MESSAGE_LENGTH = 100;
+    private BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
 
     public publisher(String name, String brokerAddress, int brokerPort) throws IOException {
         this.name = name;
@@ -46,31 +48,37 @@ public class publisher {
         out.println(topicId);
         out.println(message);
         String response = in.readLine();
-        if (response.equals("SUCCESS")) {
-            System.out.println("Message published: SUCCESS");
-        } else if (response.startsWith("ERROR:")) {
-            System.out.println("Message published: " + response);
+        if (response.startsWith("SUCCESS")) {
+            System.out.println("Message published successfully");
         } else {
-            System.out.println("Unexpected response: " + response);
+            System.out.println("Failed to publish message: " + response);
         }
     }
 
     public void showSubscriberCount(String topicId) throws IOException {
+        System.out.println("Sending SHOW_SUBSCRIBER_COUNT request for topic: " + topicId);
         out.println("SHOW_SUBSCRIBER_COUNT");
         out.println(topicId);
-        String response = in.readLine();
-        if (response.startsWith("ERROR:")) {
-            System.out.println(response);
-        } else {
-            System.out.println("Topics and their subscriber counts:");
-            while (!response.equals("END")) {
-                String[] parts = response.split("\\|");
-                if (parts.length == 3) {
-                    System.out.printf("%s %s %s%n", parts[0], parts[1], parts[2]);
-                }
-                response = in.readLine();
+        System.out.println("Waiting for response...");
+        
+        String response;
+        while ((response = in.readLine()) != null) {
+            System.out.println("Received: " + response);
+            if (response.equals("END")) {
+                break;
+            }
+            if (response.startsWith("ERROR:")) {
+                System.out.println(response);
+                break;
+            }
+            String[] parts = response.split("\\|");
+            if (parts.length == 3) {
+                System.out.printf("Topic ID: %s, Name: %s, Subscribers: %s%n", parts[0], parts[1], parts[2]);
+            } else {
+                System.out.println("Unexpected response format: " + response);
             }
         }
+        System.out.println("Finished processing SHOW_SUBSCRIBER_COUNT response");
     }
 
     public void deleteTopic(String topicId) throws IOException {
@@ -85,15 +93,14 @@ public class publisher {
     }
 
     public static void main(String[] args) {
-        String username = "DefaultPublisher";
-        String brokerIp = "localhost";
-        int brokerPort = 8080;
-
-        if (args.length == 3) {
-            username = args[0];
-            brokerIp = args[1];
-            brokerPort = Integer.parseInt(args[2]);
+        if (args.length != 3) {
+            System.out.println("用法: java -jar publisher.jar username broker_ip broker_port");
+            return;
         }
+
+        String username = args[0];
+        String brokerIp = args[1];
+        int brokerPort = Integer.parseInt(args[2]);
 
         try {
             publisher pub = new publisher(username, brokerIp, brokerPort);
@@ -168,6 +175,31 @@ public class publisher {
                 close();
             } catch (IOException e) {
                 System.out.println("Error closing connection: " + e.getMessage());
+            }
+        }
+    }
+
+    private void handleShowSubscriberCount(String topicId) throws IOException {
+        out.println("SHOW_SUBSCRIBER_COUNT");
+        out.println(topicId);
+
+        StringBuilder response = new StringBuilder();
+        String line;
+        while (!(line = in.readLine()).equals("END")) {
+            response.append(line).append("\n");
+        }
+
+        String result = response.toString().trim();
+        if (result.startsWith("ERROR")) {
+            System.out.println(result);
+        } else {
+            String[] parts = result.split("\\|");
+            if (parts.length == 3) {
+                System.out.println("Topic ID: " + parts[0]);
+                System.out.println("Topic Name: " + parts[1]);
+                System.out.println("Subscriber Count: " + parts[2]);
+            } else {
+                System.out.println("Unexpected response format: " + result);
             }
         }
     }
