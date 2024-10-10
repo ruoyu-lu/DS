@@ -136,11 +136,6 @@ public class subscriber {
         }
     }
 
-    public void close() throws IOException {
-        isRunning = false;
-        brokerSocket.close();
-    }
-
     public static void main(String[] args) {
         if (args.length != 3) {
             System.out.println("用法: java -jar subscriber.jar username broker_ip broker_port");

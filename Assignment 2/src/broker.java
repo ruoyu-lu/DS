@@ -113,7 +113,6 @@ public class broker {
                 case "SYNC_UNSUBSCRIBE":
                     handleSyncUnsubscribe(parts);
                     break;
-                // 添加其他消息类型的处理...
             }
         }
     }
@@ -137,7 +136,6 @@ public class broker {
     private void handleSubscriberCountResponse(String[] parts) {
         String topicId = parts[1];
         int count = Integer.parseInt(parts[2]);
-        // 处理订阅者数量响应，例如更新总数或通知等待的线程
     }
 
     private void handleBroadcastMessage(String[] parts, BrokerConnection brokerConn) throws IOException {
@@ -285,7 +283,7 @@ public class broker {
         }
         topics.put(topicId, new Topic(topicId, topicName, publisherName));
         handleTopicBroadcast(topicId, topicName, publisherName);
-        return "SUCCESS: Topic created with ID: " + topicId;
+        return "SUCCESS: Topic created";
     }
 
     // Publish a message to a topic
