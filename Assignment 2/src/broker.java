@@ -113,6 +113,9 @@ public class broker {
                 case "SYNC_UNSUBSCRIBE":
                     handleSyncUnsubscribe(parts);
                     break;
+                case "SYNC_UNSUBSCRIBE_ALL":
+                    handleSyncUnsubscribeAll(parts[1]);
+                    break;
             }
         }
     }
@@ -243,6 +246,8 @@ public class broker {
         } catch (IOException e) {
             System.out.println("Error handling publisher: " + publisherName);
             e.printStackTrace();
+        } finally {
+            handlePublisherDisconnection(publisherName);
         }
     }
 
@@ -290,6 +295,8 @@ public class broker {
         } catch (IOException e) {
             System.out.println("Error handling subscriber: " + subscriberName);
             e.printStackTrace();
+        } finally {
+            handleSubscriberDisconnection(subscriberName);
         }
     }
 
@@ -517,5 +524,51 @@ public class broker {
             }
         }
         System.out.println("Deleted topic: " + topicId + " due to broadcast from another broker");
+    }
+
+    // Handle publisher disconnection
+    private void handlePublisherDisconnection(String publisherName) {
+        System.out.println("Publisher disconnected: " + publisherName);
+        publisherSockets.remove(publisherName);
+        
+        // Remove all topics created by this publisher
+        List<String> topicsToRemove = new ArrayList<>();
+        for (Map.Entry<String, Topic> entry : topics.entrySet()) {
+            if (entry.getValue().publisherName.equals(publisherName)) {
+                topicsToRemove.add(entry.getKey());
+            }
+        }
+        
+        for (String topicId : topicsToRemove) {
+            deleteTopic(topicId, publisherName);
+        }
+    }
+
+    // Handle subscriber disconnection
+    private void handleSubscriberDisconnection(String subscriberName) {
+        System.out.println("Subscriber disconnected: " + subscriberName);
+        subscriberSockets.remove(subscriberName);
+        
+        // Unsubscribe from all topics
+        for (Topic topic : topics.values()) {
+            topic.subscribers.remove(subscriberName);
+        }
+        
+        // Broadcast unsubscribe to other brokers
+        for (BrokerConnection brokerConn : otherBrokers.values()) {
+            try {
+                brokerConn.writer.println("SYNC_UNSUBSCRIBE_ALL|" + subscriberName);
+            } catch (Exception e) {
+                System.out.println("Error broadcasting unsubscribe all to broker");
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void handleSyncUnsubscribeAll(String subscriberName) {
+        for (Topic topic : topics.values()) {
+            topic.subscribers.remove(subscriberName);
+        }
+        System.out.println("Synced unsubscribe all for subscriber: " + subscriberName);
     }
 }
