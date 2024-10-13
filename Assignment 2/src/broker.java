@@ -103,7 +103,7 @@ public class broker {
                 writer.println("BROKER_CONNECTED");
                 BrokerConnection brokerConn = new BrokerConnection(clientSocket);
                 otherBrokers.put(otherBrokerPort, brokerConn);
-                System.out.println("接受来自端口 " + otherBrokerPort + " 的 broker 连接");
+                System.out.println("Received connection from broker on port " + otherBrokerPort);
                 handleBrokerConnection(brokerConn);
             } else if ("PUBLISHER".equals(clientType)) {
                 // Handle publisher connection
@@ -287,7 +287,7 @@ public class broker {
                                 }
                             }
                     
-                            response = showTopicId + " " + topic.name + " " + totalCount;
+                            response = showTopicId + "|" + topic.name + "|" + totalCount;
                             System.out.println("Sending response to publisher: " + response);
                             messageHandler.sendMessage(publisherSockets.get(publisherName), response);
                             messageHandler.sendMessage(publisherSockets.get(publisherName), "END");
@@ -396,7 +396,7 @@ public class broker {
                     e.printStackTrace();
                 }
             }
-            // 发送成功消息给发布者
+            // send success message to publisher
             try {
                 Socket publisherSocket = publisherSockets.get(publisherName);
                 messageHandler.sendMessage(publisherSocket, "SUCCESS: Message published");
@@ -477,7 +477,7 @@ public class broker {
     // Main method to run the broker
     public static void main(String[] args) {
         if (args.length != 2) {
-            System.out.println("用法: java -jar broker.jar brokerIP:brokerPort directoryServiceIp:directoryServicePort");
+            System.out.println("usage: java -jar broker.jar brokerIP:brokerPort directoryServiceIp:directoryServicePort");
             return;
         }
 
@@ -485,7 +485,7 @@ public class broker {
         String[] directoryServiceInfo = args[1].split(":");
 
         if (brokerInfo.length != 2 || directoryServiceInfo.length != 2) {
-            System.out.println("无效的参数格式。请使用 IP:Port 格式。");
+            System.out.println("Invalid parameter format. Please use IP:Port format.");
             return;
         }
 
@@ -497,12 +497,12 @@ public class broker {
         broker brokerInstance = new broker(brokerIp, brokerPort);
         brokerInstance.registerWithDirectoryService(directoryServiceIp, directoryServicePort);
 
-        System.out.println("Broker 正在启动，IP: " + brokerIp + ", 端口: " + brokerPort);
+        System.out.println("Broker is running, IP: " + brokerIp + ", Port: " + brokerPort);
         brokerInstance.start();
     }
 
     public void connectToBroker(String brokerName, String ip, int port) {
-        System.out.println("尝试连接到 broker " + brokerName + " 地址: " + ip + ":" + port);
+        System.out.println("Try to connect to broker " + brokerName + " at " + ip + ":" + port);
         connectionExecutor.submit(() -> {
             while (true) {
                 try {
@@ -519,31 +519,31 @@ public class broker {
                     if ("BROKER_CONNECTED".equals(response)) {
                         BrokerConnection brokerConn = new BrokerConnection(socket);
                         otherBrokers.put(port, brokerConn);
-                        System.out.println("成功连接到 broker " + brokerName + " 地址: " + ip + ":" + port);
+                        System.out.println("Successfully connected to broker " + brokerName + " at " + ip + ":" + port);
 
-                        // 连接成功后，同步现有的 topics
+                        // sychronize topics
                         for (Topic topic : topics.values()) {
                             brokerConn.writer.println("SYNC_TOPIC|" + topic.id + "|" + topic.name + "|" + topic.publisherName);
                         }
                         
-                        // 启动一个新线程来处理来自这个 broker 的消息
+                        // start handling broker connection
                         new Thread(() -> {
                             try {
                                 handleBrokerConnection(brokerConn);
                             } catch (IOException e) {
-                                System.out.println("处理 broker 连接时发生错误: " + e.getMessage());
+                                System.out.println("Error handling broker connection: " + e.getMessage());
                                 e.printStackTrace();
                             }
                         }).start();
                         
                         break;
                     } else {
-                        System.out.println("连接到 broker " + brokerName + " 失败: 未收到预期的响应");
+                        System.out.println("connect broker " + brokerName + " failed: no expected response");
                         socket.close();
                     }
                 } catch (IOException e) {
-                    System.out.println("连接到 broker " + brokerName + " 失败: " + e.getMessage());
-                    // 连接失败，等待一段时间后重试
+                    System.out.println("connect broker " + brokerName + " failed: " + e.getMessage());
+                    // connect failed, wait 5 seconds and try again
                     try {
                         Thread.sleep(5000);
                     } catch (InterruptedException ie) {
@@ -672,17 +672,17 @@ public class broker {
 
             String response = in.readLine();
             if ("SUCCESS".equals(response)) {
-                System.out.println("成功注册到 Directory Service");
+                System.out.println("Successfully registered to Directory Service");
                 String brokerList = in.readLine();
                 if ("BROKER_LIST".equals(brokerList)) {
                     connectToOtherBrokers(in);
                 }
                 startHeartbeat(); // Start sending heartbeats after successful registration
             } else {
-                System.out.println("注册到 Directory Service 失败: " + response);
+                System.out.println("register to Directory Service failed: " + response);
             }
         } catch (IOException e) {
-            System.out.println("连接到 Directory Service 时发生错误: " + e.getMessage());
+            System.out.println("connect to Directory Service failed: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -82,7 +82,7 @@ public class subscriber {
         while (!(response = waitForResponse()).equals("END")) {
             String[] parts = response.split("\\|");
             if (parts.length == 3) {
-                System.out.printf("%s %s %s%n", parts[0], parts[1], parts[2]);
+                System.out.printf("TopicID: %s, TopicName: %s, SubscriberCount: %s%n", parts[0], parts[1], parts[2]);
             }
         }
     }
@@ -113,18 +113,22 @@ public class subscriber {
             System.out.println("No active subscriptions.");
         } else {
             for (Map.Entry<String, String> entry : subscriptionDetails.entrySet()) {
-                System.out.println(entry.getValue());
+                String topicId = entry.getKey();
+                String[] details = entry.getValue().split("\\|");
+                if (details.length >= 2) {
+                    String topicName = details[0];
+                    String publisherName = details[1];
+                    System.out.printf("%s|%s|%s%n", topicId, topicName, publisherName);
+                }
             }
         }
     }
 
     // Unsubscribes from a specific topic
     public void unsubscribeTopic(String topicId) throws IOException {
-        System.out.println("Attempting to unsubscribe from topic: " + topicId);
         out.println("UNSUBSCRIBE_TOPIC");
         out.println(topicId);
         String response = waitForResponse();
-        System.out.println("Received response: " + response);
         if (response.equals("SUCCESS")) {
             subscriptions.remove(topicId);
             subscriptionDetails.remove(topicId);

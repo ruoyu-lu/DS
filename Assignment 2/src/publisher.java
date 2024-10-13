@@ -74,12 +74,12 @@ public class publisher {
 
     // Method to show the subscriber count for a specific topic
     public void showSubscriberCount(String topicId) throws IOException {
-        System.out.println("Showing subscriber count for topic " + topicId);
+        System.out.println("Subscriber count for topic " + topicId + ":");
         out.println("SHOW_SUBSCRIBER_COUNT");
         out.println(topicId);
         
         String response = in.readLine();
-        System.out.println("Received: " + response);
+        System.out.println(response);
         while ((response = in.readLine()) != null) {
             
             if (response.equals("END")) {
