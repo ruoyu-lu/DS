@@ -1,6 +1,22 @@
 /*
- * represent a subscriber client that communicates with the Broker through sockets.
- * provide methods to list topics, subscribe/unsubscribe to topics, and receive messages.
+ * File: subscriber.java
+ * Author: Ruoyu Lu
+ * Student ID: 1466195
+ * 
+ * Description: 
+ * This class represents a subscriber client in the distributed publish-subscribe system.
+ * It communicates with a broker to subscribe to topics and receive messages.
+ * 
+ * Main functionalities include:
+ * 1. Connecting to a broker (obtained from the Directory Service)
+ * 2. Listing available topics
+ * 3. Subscribing to topics
+ * 4. Unsubscribing from topics
+ * 5. Receiving and displaying messages from subscribed topics
+ * 6. Maintaining a list of current subscriptions
+ * 
+ * The subscriber provides a console-based interface for users to interact with the system,
+ * allowing them to manage their subscriptions and view incoming messages in real-time.
  */
 
 import java.io.*;
@@ -20,6 +36,7 @@ public class subscriber {
     private static final int MAX_RETRY_ATTEMPTS = 3;
     private static final int RETRY_DELAY_MS = 5000;
 
+    // Constructor: Initializes the subscriber and establishes connection with the broker
     public subscriber(String name, String brokerAddress, int brokerPort) throws IOException {
         this.name = name;
         this.brokerSocket = new Socket(brokerAddress, brokerPort);
@@ -34,7 +51,7 @@ public class subscriber {
         out.println(name);
     }
 
-    // 新方法：从 Directory Service 获取 broker 列表
+    // Retrieves broker information from the Directory Service
     private static List<String[]> getBrokerInfoFromDirectoryService(String directoryServiceIp, int directoryServicePort) throws IOException {
         List<String[]> brokers = new ArrayList<>();
         try (Socket socket = new Socket(directoryServiceIp, directoryServicePort);
@@ -50,12 +67,13 @@ public class subscriber {
                 }
             }
             if (brokers.isEmpty()) {
-                throw new IOException("未能从 Directory Service 获取 broker 信息");
+                throw new IOException("Failed to get broker information from Directory Service");
             }
             return brokers;
         }
     }
 
+    // Lists all available topics
     public void listAllTopics() throws IOException {
         out.println("LIST_TOPICS");
         System.out.println("Available Topics:");
@@ -69,6 +87,7 @@ public class subscriber {
         }
     }
 
+    // Subscribes to a specific topic
     public void subscribeTopic(String topicId) throws IOException {
         out.println("SUBSCRIBE_TOPIC");
         out.println(topicId);
@@ -87,10 +106,11 @@ public class subscriber {
         }
     }
 
+    // Displays current subscriptions
     public void showCurrentSubscriptions() {
-        System.out.println("当前订阅：");
+        System.out.println("Current subscriptions:");
         if (subscriptionDetails.isEmpty()) {
-            System.out.println("没有活跃的订阅。");
+            System.out.println("No active subscriptions.");
         } else {
             for (Map.Entry<String, String> entry : subscriptionDetails.entrySet()) {
                 System.out.println(entry.getValue());
@@ -98,21 +118,23 @@ public class subscriber {
         }
     }
 
+    // Unsubscribes from a specific topic
     public void unsubscribeTopic(String topicId) throws IOException {
-        System.out.println("正在尝试取消订阅主题：" + topicId);
+        System.out.println("Attempting to unsubscribe from topic: " + topicId);
         out.println("UNSUBSCRIBE_TOPIC");
         out.println(topicId);
         String response = waitForResponse();
-        System.out.println("收到响应：" + response);
+        System.out.println("Received response: " + response);
         if (response.equals("SUCCESS")) {
             subscriptions.remove(topicId);
             subscriptionDetails.remove(topicId);
-            System.out.println("成功取消订阅主题：" + topicId);
+            System.out.println("Successfully unsubscribed from topic: " + topicId);
         } else {
-            System.out.println("取消订阅主题失败：" + topicId + " - " + response);
+            System.out.println("Failed to unsubscribe from topic: " + topicId + " - " + response);
         }
     }
 
+    // Starts a thread to listen for incoming messages from the broker
     private void startListening() {
         new Thread(() -> {
             try {
@@ -135,6 +157,7 @@ public class subscriber {
         }).start();
     }
 
+    // Handles the deletion of a topic
     private void handleTopicDeleted(String message) {
         String[] parts = message.split("\\|");
         if (parts.length == 3) {
@@ -146,6 +169,7 @@ public class subscriber {
         }
     }
 
+    // Waits for a response from the broker with a timeout
     private String waitForResponse() throws IOException {
         try {
             String message = messageQueue.poll(5, TimeUnit.SECONDS);
@@ -158,55 +182,58 @@ public class subscriber {
         }
     }
 
+    // Main method to run the subscriber client
     public static void main(String[] args) {
         if (args.length != 2) {
-            System.out.println("用法: java -jar subscriber.jar username directoryServiceIp:directoryServicePort");
+            System.out.println("Usage: java -jar subscriber.jar username directoryServiceIp:directoryServicePort");
             return;
         }
 
         String username = args[0];
         String[] directoryServiceInfo = args[1].split(":");
         if (directoryServiceInfo.length != 2) {
-            System.out.println("无效的 Directory Service 信息。请使用格式：IP:Port");
+            System.out.println("Invalid Directory Service information. Please use format: IP:Port");
             return;
         }
 
         String directoryServiceIp = directoryServiceInfo[0];
         int directoryServicePort = Integer.parseInt(directoryServiceInfo[1]);
 
+        // Attempt to connect to a broker with retries
         for (int attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
             try {
                 List<String[]> brokers = getBrokerInfoFromDirectoryService(directoryServiceIp, directoryServicePort);
                 if (brokers.isEmpty()) {
-                    throw new IOException("没有可用的 broker");
+                    throw new IOException("No available brokers");
                 }
-                // 随机选择broker连接
+                // Randomly select a broker to connect
                 String[] selectedBroker = brokers.get(new Random().nextInt(brokers.size())); 
                 String brokerIp = selectedBroker[0];
                 int brokerPort = Integer.parseInt(selectedBroker[1]);
 
                 subscriber sub = new subscriber(username, brokerIp, brokerPort);
 
-                //显示连接broker的端口
+                // Display connected broker information
                 System.out.println("Connected to broker at " + brokerIp + ":" + brokerPort);
                 sub.startConsole();
                 break;
             } catch (IOException e) {
-                System.out.println("连接到 broker 时出错: " + e.getMessage());
+                System.out.println("Error connecting to broker: " + e.getMessage());
                 if (attempt < MAX_RETRY_ATTEMPTS - 1) {
-                    System.out.println(RETRY_DELAY_MS / 1000 + " 秒后重试...");
+                    System.out.println("Retrying in " + RETRY_DELAY_MS / 1000 + " seconds...");
                     try {
                         Thread.sleep(RETRY_DELAY_MS);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                     }
                 } else {
-                    System.out.println("达到最大重试次数。退出。");
+                    System.out.println("Maximum retry attempts reached. Exiting.");
                 }
             }
         }
     }
 
+    // Starts the console interface for user interaction
     private void startConsole() {
         Scanner scanner = new Scanner(System.in);
         while (isRunning) {
@@ -263,7 +290,7 @@ public class subscriber {
                 System.out.println("Error: " + e.getMessage());
             }
 
-            // 处理接收到的消息
+            // Handle received messages
 
         }
         scanner.close();

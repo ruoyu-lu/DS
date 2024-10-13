@@ -1,43 +1,55 @@
+/*
+ * File: directoryService.java
+ * Author: Ruoyu Lu
+ * Student ID: 1466195
+ * 
+ * Description: 
+ * This class implements the Directory Service for the distributed publish-subscribe system.
+ * It maintains a list of active brokers and provides this information to publishers and subscribers.
+ * 
+ * Main functionalities include:
+ * 1. Maintaining a list of active brokers
+ * 2. Handling broker registration and deregistration
+ * 3. Responding to client requests for broker information
+ * 4. Monitoring broker health through heartbeats
+ * 5. Removing inactive brokers from the active list
+ * 
+ * The Directory Service plays a crucial role in the system by enabling dynamic discovery
+ * of brokers and facilitating fault tolerance by keeping track of broker availability.
+ */
+
 import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-//提供一个集中化的注册系统，记录所有活跃的代理信息。
-//代理启动时将自身的 IP 和端口号注册到 Directory Service。
-//代理下线时从 Directory Service 中移除。
-//代理通过 Directory Service 获取其他代理的信息。
-//发布者/订阅者通过查询 Directory Service，获取当前可用的代理列表，然后连接到其中一个代理。
-
 public class DirectoryService {
-    private int port;
-    private String ip;
+    private static final int PORT = 8000;
+    private static final int HEARTBEAT_TIMEOUT = 15; // 15 seconds
     private Map<String, BrokerInfo> activeBrokers;
     private ServerSocket serverSocket;
     private ExecutorService executorService;
     private ScheduledExecutorService timeoutChecker;
     private Map<String, Long> lastHeartbeatTimes;
 
-    private static final int HEARTBEAT_TIMEOUT = 15; // 15 seconds
-
     private static class BrokerInfo {
         String ip;
         int port;
 
+        // Constructor: Initializes a BrokerInfo object
         BrokerInfo(String ip, int port) {
             this.ip = ip;
             this.port = port;
         }
 
+        // Returns a string representation of the broker information
         @Override
         public String toString() {
             return ip + ":" + port;
         }
     }
 
-    public DirectoryService(String ip, int port) {
-        this.ip = ip;
-        this.port = port;
+    public DirectoryService() {
         this.activeBrokers = new ConcurrentHashMap<>();
         this.executorService = Executors.newCachedThreadPool();
         this.lastHeartbeatTimes = new ConcurrentHashMap<>();
@@ -66,8 +78,8 @@ public class DirectoryService {
 
     public void start() {
         try {
-            serverSocket = new ServerSocket(port, 50, InetAddress.getByName(ip));
-            System.out.println("Directory Service started on " + ip + ":" + port);
+            serverSocket = new ServerSocket(PORT);
+            System.out.println("Directory Service started on port " + PORT);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
@@ -78,6 +90,7 @@ public class DirectoryService {
         }
     }
 
+    // Handles client connections (brokers, publishers, or subscribers)
     private void handleClient(Socket clientSocket) {
         try (
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -169,28 +182,9 @@ public class DirectoryService {
         sendBrokerList(out);
     }
 
+    // Main method to run the DirectoryService
     public static void main(String[] args) {
-        if (args.length != 1) {
-            System.out.println("用法: java -jar directoryservice.jar ip:port");
-            return;
-        }
-
-        String[] parts = args[0].split(":");
-        if (parts.length != 2) {
-            System.out.println("无效的 IP:Port 格式。请使用 ip:port");
-            return;
-        }
-
-        String ip = parts[0];
-        int port;
-        try {
-            port = Integer.parseInt(parts[1]);
-        } catch (NumberFormatException e) {
-            System.out.println("无效的端口号。请提供一个有效的数字。");
-            return;
-        }
-
-        DirectoryService directoryService = new DirectoryService(ip, port);
+        DirectoryService directoryService = new DirectoryService();
         directoryService.start();
     }
 }

@@ -1,5 +1,23 @@
 /*
- * This class is the broker class that will handle the messages and the topics
+ * File: broker.java
+ * Author: Ruoyu Lu
+ * Student ID: 1466195
+ * 
+ * Description: 
+ * This class represents a broker in the distributed publish-subscribe system.
+ * It acts as an intermediary between publishers and subscribers, managing topics
+ * and message distribution.
+ * 
+ * Main functionalities include:
+ * 1. Handling connections from publishers and subscribers
+ * 2. Managing topics and subscriptions
+ * 3. Distributing messages from publishers to relevant subscribers
+ * 4. Communicating with other brokers in the network
+ * 5. Maintaining a heartbeat with the Directory Service
+ * 
+ * The broker supports operations such as creating topics, publishing messages,
+ * subscribing to topics, and unsubscribing from topics. It also handles the
+ * synchronization of topic and subscription information across the broker network.
  */
 
 import java.util.*;
@@ -8,13 +26,17 @@ import java.io.*;
 import java.util.concurrent.*;
 
 public class broker {
+    // Constants for connection limits and heartbeat settingsyy
     private static final int MAX_PUBLISHERS = 5;
     private static final int MAX_SUBSCRIBERS = 10;
     private static final int HEARTBEAT_INTERVAL = 5; // 5 seconds
     private static final String HEARTBEAT_MESSAGE = "HEARTBEAT";
 
+    // Broker identification and connection information
     private String brokerIp;
     private int port;
+
+    // Data structures for managing topics, connections, and message processing
     private Map<String, Topic> topics;
     private Map<String, Socket> publisherSockets;
     private Map<String, Socket> subscriberSockets;
@@ -28,11 +50,13 @@ public class broker {
     private String directoryServiceIp;
     private int directoryServicePort;
 
+    // Inner class to represent a connection to another broker
     private static class BrokerConnection {
         Socket socket;
         BufferedReader reader;
         PrintWriter writer;
 
+        // Constructor for BrokerConnection
         BrokerConnection(Socket socket) throws IOException {
             this.socket = socket;
             this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -40,6 +64,7 @@ public class broker {
         }
     }
 
+    // Constructor for the broker
     public broker(String brokerIp, int port) {
         this.brokerIp = brokerIp;
         this.port = port;
@@ -73,6 +98,7 @@ public class broker {
             String clientType = reader.readLine();
 
             if ("BROKER".equals(clientType)) {
+                // Handle broker-to-broker connection
                 int otherBrokerPort = Integer.parseInt(reader.readLine());
                 writer.println("BROKER_CONNECTED");
                 BrokerConnection brokerConn = new BrokerConnection(clientSocket);
@@ -80,6 +106,7 @@ public class broker {
                 System.out.println("接受来自端口 " + otherBrokerPort + " 的 broker 连接");
                 handleBrokerConnection(brokerConn);
             } else if ("PUBLISHER".equals(clientType)) {
+                // Handle publisher connection
                 String clientName = reader.readLine();
                 if (publisherSockets.size() < MAX_PUBLISHERS) {
                     publisherSockets.put(clientName, clientSocket);
@@ -88,6 +115,7 @@ public class broker {
                     clientSocket.close();
                 }
             } else if ("SUBSCRIBER".equals(clientType)) {
+                // Handle subscriber connection
                 String clientName = reader.readLine();
                 if (subscriberSockets.size() < MAX_SUBSCRIBERS) {
                     subscriberSockets.put(clientName, clientSocket);
@@ -103,6 +131,7 @@ public class broker {
         }
     }
 
+    // Handle communication with another broker
     private void handleBrokerConnection(BrokerConnection brokerConn) throws IOException {
         String line;
         while ((line = brokerConn.reader.readLine()) != null) {
@@ -134,6 +163,7 @@ public class broker {
         }
     }
 
+    // Handle topic synchronization between brokers
     private void handleSyncTopic(String[] parts, BrokerConnection brokerConn) {
         String syncTopicId = parts[1];
         String topicName = parts[2];
@@ -144,6 +174,7 @@ public class broker {
         }
     }
 
+    // Handle request for subscriber count from another broker
     private void handleGetSubscriberCount(String[] parts, BrokerConnection brokerConn) throws IOException {
         String topicId = parts[1];
         String requestId = parts[2]; // Extract the requestId
@@ -151,6 +182,7 @@ public class broker {
         brokerConn.writer.println("SUBSCRIBER_COUNT|" + topicId + "|" + count + "|" + requestId);
     }
 
+    // Handle response for subscriber count from another broker
     private void handleSubscriberCountResponse(String[] parts) {
         String topicId = parts[1];
         int count = Integer.parseInt(parts[2]);
@@ -164,6 +196,7 @@ public class broker {
         }
     }
 
+    // Handle broadcast message from another broker
     private void handleBroadcastMessage(String[] parts, BrokerConnection brokerConn) throws IOException {
         String topicId = parts[1];
         String message = parts[2];
@@ -192,6 +225,7 @@ public class broker {
         }
     }
 
+    // Get the local subscriber count for a topic
     private int getLocalSubscriberCount(String topicId) {
         Topic topic = topics.get(topicId);
         return topic != null ? topic.subscribers.size() : 0;
@@ -549,6 +583,7 @@ public class broker {
         }
     }
 
+    // Handle topic deletion broadcast to other brokers
     public void handleTopicDeleteBroadcast(String topicId) {
         for (BrokerConnection brokerConn : otherBrokers.values()) {
             try {
@@ -560,6 +595,7 @@ public class broker {
         }
     }
 
+    // Handle topic deletion
     private void handleDeleteTopic(String topicId) {
         Topic topic = topics.remove(topicId);
         if (topic != null) {
@@ -622,6 +658,7 @@ public class broker {
         System.out.println("Synced unsubscribe all for subscriber: " + subscriberName);
     }
 
+    // Register the broker with the Directory Service
     private void registerWithDirectoryService(String directoryServiceIp, int directoryServicePort) {
         this.directoryServiceIp = directoryServiceIp;
         this.directoryServicePort = directoryServicePort;
@@ -650,6 +687,7 @@ public class broker {
         }
     }
 
+    // Connect to other brokers based on information from Directory Service
     private void connectToOtherBrokers(BufferedReader in) throws IOException {
         String line;
         while (!(line = in.readLine()).equals("END")) {
@@ -664,6 +702,7 @@ public class broker {
         }
     }
 
+    // Start sending heartbeats to the Directory Service
     private void startHeartbeat() {
         heartbeatExecutor.scheduleAtFixedRate(() -> {
             try (Socket socket = new Socket(directoryServiceIp, directoryServicePort);

@@ -1,6 +1,23 @@
 /*
- * represent a publisher client that communicates with the Broker through sockets.
- * provide methods to create topics, publish messages, delete topics, and get subscriber counts.
+ * File: publisher.java
+ * Author: Ruoyu Lu
+ * Student ID: 1466195
+ * 
+ * Description: 
+ * This class represents a publisher client that communicates with the Broker via sockets.
+ * It provides methods for creating topics, publishing messages, deleting topics, 
+ * and retrieving subscriber counts.
+ * 
+ * Main functionalities include:
+ * 1. Connecting to a specified Broker
+ * 2. Creating new topics
+ * 3. Publishing messages to specific topics
+ * 4. Viewing subscriber counts for specific topics
+ * 5. Deleting topics
+ * 6. Interacting with users through a console interface
+ * 
+ * This class also implements interaction with the Directory Service to obtain 
+ * available Broker information and retries connections in case of failure.
  */
 
 import java.io.*;
@@ -18,6 +35,7 @@ public class publisher {
     private static final int MAX_RETRY_ATTEMPTS = 3;
     private static final int RETRY_DELAY_MS = 5000;
 
+    // Constructor to initialize the publisher with a name and broker connection details
     public publisher(String name, String brokerAddress, int brokerPort) throws IOException {
         this.name = name;
         this.brokerSocket = new Socket(brokerAddress, brokerPort);
@@ -28,6 +46,7 @@ public class publisher {
         out.println(name);
     }
 
+    // Method to create a new topic
     public void createTopic(String topicId, String topicName) throws IOException {
         out.println("CREATE_TOPIC");
         out.println(topicId);
@@ -36,6 +55,7 @@ public class publisher {
         System.out.println(response);
     }
 
+    // Method to publish a message to a specific topic
     public void publishMessage(String topicId, String message) throws IOException {
         if (message.length() > MAX_MESSAGE_LENGTH) {
             System.out.println("Message is too long. The max length is " + MAX_MESSAGE_LENGTH + " characters.");
@@ -52,11 +72,11 @@ public class publisher {
         }
     }
 
+    // Method to show the subscriber count for a specific topic
     public void showSubscriberCount(String topicId) throws IOException {
         System.out.println("Showing subscriber count for topic " + topicId);
         out.println("SHOW_SUBSCRIBER_COUNT");
         out.println(topicId);
-        // System.out.println("Waiting for response...");
         
         String response = in.readLine();
         System.out.println("Received: " + response);
@@ -69,17 +89,11 @@ public class publisher {
                 System.out.println(response);
                 break;
             }
-            // String[] parts = response.split("\\|");
-            // if (parts.length == 3) {
-            //     System.out.printf("%s %s %s%n", parts[0], parts[1], parts[2]);
-            // } else {
-            //     System.out.println("Unexpected response format: " + response);
-            // }
             System.out.println(response);
         }
-        // System.out.println("Finished processing SHOW_SUBSCRIBER_COUNT response");
     }
 
+    // Method to delete a topic
     public void deleteTopic(String topicId) throws IOException {
         out.println("DELETE_TOPIC");
         out.println(topicId);
@@ -87,11 +101,12 @@ public class publisher {
         System.out.println(response);
     }
 
+    // Method to close the connection with the broker
     public void close() throws IOException {
         brokerSocket.close();
     }
 
-    // New method to get broker info from Directory Service
+    // Method to get broker information from the Directory Service
     private static List<String[]> getBrokerInfoFromDirectoryService(String directoryServiceIp, int directoryServicePort) throws IOException {
         List<String[]> brokers = new ArrayList<>();
         try (Socket socket = new Socket(directoryServiceIp, directoryServicePort);
@@ -113,6 +128,7 @@ public class publisher {
         }
     }
 
+    // Main method to run the publisher
     public static void main(String[] args) {
         if (args.length != 2) {
             System.out.println("用法: java -jar publisher.jar username directoryServiceIp:directoryServicePort");
@@ -135,14 +151,14 @@ public class publisher {
                 if (brokers.isEmpty()) {
                     throw new IOException("没有可用的 broker");
                 }
-                // 随机选择broker连接
+                // Randomly select a broker to connect
                 String[] selectedBroker = brokers.get(new Random().nextInt(brokers.size())); 
                 String brokerIp = selectedBroker[0];
                 int brokerPort = Integer.parseInt(selectedBroker[1]);
 
                 publisher pub = new publisher(username, brokerIp, brokerPort);
 
-                //显示连接broker的端口
+                // Display the connected broker's port
                 System.out.println("Connected to broker at " + brokerIp + ":" + brokerPort);
                 pub.startConsole();
                 break;
@@ -162,6 +178,7 @@ public class publisher {
         }
     }
 
+    // Method to start the console interface for user interaction
     private void startConsole() {
         Scanner scanner = new Scanner(System.in);
         try {
@@ -230,30 +247,4 @@ public class publisher {
             }
         }
     }
-
-//    private void handleShowSubscriberCount(String topicId) throws IOException {
-//        out.println("SHOW_SUBSCRIBER_COUNT");
-//        out.println(topicId);
-//
-//        StringBuilder response = new StringBuilder();
-//        String line;
-//        while (!(line = in.readLine()).equals("END")) {
-//            response.append(line).append("\n");
-//        }
-//
-//        String result = response.toString().trim();
-//        if (result.startsWith("ERROR")) {
-//            System.out.println(result);
-//        } else {
-//            String[] parts = result.split("\\|");
-//            if (parts.length == 3) {
-//                System.out.println("Topic ID: " + parts[0]);
-//                System.out.println("Topic Name: " + parts[1]);
-//                System.out.println("Subscriber Count: " + parts[2]);
-//            } else {
-//                System.out.println("Unexpected response format: " + result);
-//            }
-//        }
-//    }
 }
-
