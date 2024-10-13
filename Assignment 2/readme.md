@@ -15,6 +15,10 @@
  -2024.10.23 修复了安全漏洞,确只有创建topic的publisher才能向该topic发布消息
  -2024.10.24 修复了创建和删除topic时的响应错乱问题，提高了系统的可靠性和用户体验
  -2024.10.25 实现了 publisher 和 subscriber 断开连接时的自动清理功能，包括删除相关 topics 和取消订阅
+ -2024.10.26 更新了 publisher 和 subscriber 的启动方式，现在通过 Directory Service 获取 broker 信息
+   - 修改了 publisher.java 和 subscriber.java 的 main 方法
+   - 添加了从 Directory Service 获取 broker 信息的功能
+   - 实现了连接失败时的重试机制
 
 ## 开发阶段使用说明
 
@@ -35,19 +39,14 @@
    jar cvfe subscriber.jar subscriber -C src .
    ```
 
-2. 运行broker:
+2. 运行publisher:
    ```
-   java -jar broker.jar <port> [-b <broker_ip_1:port1> <broker_ip_2:port2> ...]
-   ```
-
-3. 运行publisher:
-   ```
-   java -jar publisher.jar <username> <broker_ip> <broker_port>
+   java -jar publisher.jar <username> <directoryServiceIp:directoryServicePort>
    ```
 
-4. 运行subscriber:
+3. 运行subscriber:
    ```
-   java -jar subscriber.jar <username> <broker_ip> <broker_port>
+   java -jar subscriber.jar <username> <directoryServiceIp:directoryServicePort>
    ```
 
 ## 待办事项

@@ -11,6 +11,7 @@ public class broker {
     private static final int MAX_PUBLISHERS = 5;
     private static final int MAX_SUBSCRIBERS = 10;
 
+    private String brokerIp;
     private int port;
     private Map<String, Topic> topics;
     private Map<String, Socket> publisherSockets;
@@ -34,7 +35,8 @@ public class broker {
         }
     }
 
-    public broker(int port) {
+    public broker(String brokerIp, int port) {
+        this.brokerIp = brokerIp;
         this.port = port;
         this.topics = new ConcurrentHashMap<>();
         this.publisherSockets = new ConcurrentHashMap<>();
@@ -452,10 +454,10 @@ public class broker {
         String directoryServiceIp = directoryServiceInfo[0];
         int directoryServicePort = Integer.parseInt(directoryServiceInfo[1]);
 
-        broker brokerInstance = new broker(brokerPort);
+        broker brokerInstance = new broker(brokerIp, brokerPort);
         brokerInstance.registerWithDirectoryService(directoryServiceIp, directoryServicePort);
 
-        System.out.println("Broker 正在启动，端口: " + brokerPort);
+        System.out.println("Broker 正在启动，IP: " + brokerIp + ", 端口: " + brokerPort);
         brokerInstance.start();
     }
 
@@ -620,7 +622,7 @@ public class broker {
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
             out.println("REGISTER");
-            out.println(InetAddress.getLocalHost().getHostAddress());
+            out.println(this.brokerIp);
             out.println(this.port);
 
             String response = in.readLine();

@@ -65,6 +65,7 @@ public class DirectoryService {
                     break;
                 case "GET_BROKERS":
                     sendBrokerList(out);
+                    printActiveBrokers();
                     break;
                 default:
                     out.println("UNKNOWN_COMMAND");
@@ -109,8 +110,17 @@ public class DirectoryService {
     private void sendBrokerList(PrintWriter out) {
         for (BrokerInfo broker : activeBrokers.values()) {
             out.println(broker.toString());
+            System.out.println("Sent broker list to client: " + broker.toString());
         }
         out.println("END");
+    }
+
+    private void printActiveBrokers() {
+        System.out.println("Current active brokers:");
+        for (BrokerInfo broker : activeBrokers.values()) {
+            System.out.println(broker);
+        }
+        System.out.println("--------------------");
     }
 
     private void sendBrokerListToNewBroker(PrintWriter out) {

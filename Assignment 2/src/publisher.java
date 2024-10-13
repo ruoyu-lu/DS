@@ -15,6 +15,8 @@ public class publisher {
     private BufferedReader in;
     private static final int MAX_MESSAGE_LENGTH = 100;
     private BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+    private static final int RETRY_DELAY_MS = 5000;
 
     public publisher(String name, String brokerAddress, int brokerPort) throws IOException {
         this.name = name;
@@ -89,21 +91,74 @@ public class publisher {
         brokerSocket.close();
     }
 
+    // New method to get broker info from Directory Service
+    private static List<String[]> getBrokerInfoFromDirectoryService(String directoryServiceIp, int directoryServicePort) throws IOException {
+        List<String[]> brokers = new ArrayList<>();
+        try (Socket socket = new Socket(directoryServiceIp, directoryServicePort);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            out.println("GET_BROKERS");
+            String response;
+            while ((response = in.readLine()) != null && !response.equals("END")) {
+                String[] brokerInfo = response.split(":");
+                if (brokerInfo.length == 2) {
+                    brokers.add(new String[]{brokerInfo[0], brokerInfo[1]});
+                }
+            }
+            if (brokers.isEmpty()) {
+                throw new IOException("未能从 Directory Service 获取 broker 信息");
+            }
+            return brokers;
+        }
+    }
+
     public static void main(String[] args) {
-        if (args.length != 3) {
-            System.out.println("Usage: java -jar publisher.jar username broker_ip broker_port");
+        if (args.length != 2) {
+            System.out.println("用法: java -jar publisher.jar username directoryServiceIp:directoryServicePort");
             return;
         }
 
         String username = args[0];
-        String brokerIp = args[1];
-        int brokerPort = Integer.parseInt(args[2]);
+        String[] directoryServiceInfo = args[1].split(":");
+        if (directoryServiceInfo.length != 2) {
+            System.out.println("无效的 Directory Service 信息。请使用格式：IP:Port");
+            return;
+        }
 
-        try {
-            publisher pub = new publisher(username, brokerIp, brokerPort);
-            pub.startConsole();
-        } catch (IOException e) {
-            e.printStackTrace();
+        String directoryServiceIp = directoryServiceInfo[0];
+        int directoryServicePort = Integer.parseInt(directoryServiceInfo[1]);
+
+        for (int attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+            try {
+                List<String[]> brokers = getBrokerInfoFromDirectoryService(directoryServiceIp, directoryServicePort);
+                if (brokers.isEmpty()) {
+                    throw new IOException("没有可用的 broker");
+                }
+                // 随机选择broker连接
+                String[] selectedBroker = brokers.get(new Random().nextInt(brokers.size())); 
+                String brokerIp = selectedBroker[0];
+                int brokerPort = Integer.parseInt(selectedBroker[1]);
+
+                publisher pub = new publisher(username, brokerIp, brokerPort);
+
+                //显示连接broker的端口
+                System.out.println("Connected to broker at " + brokerIp + ":" + brokerPort);
+                pub.startConsole();
+                break;
+            } catch (IOException e) {
+                System.out.println("连接到 broker 时出错: " + e.getMessage());
+                if (attempt < MAX_RETRY_ATTEMPTS - 1) {
+                    System.out.println(RETRY_DELAY_MS / 1000 + " 秒后重试...");
+                    try {
+                        Thread.sleep(RETRY_DELAY_MS);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    System.out.println("达到最大重试次数。退出。");
+                }
+            }
         }
     }
 
@@ -201,3 +256,4 @@ public class publisher {
 //        }
 //    }
 }
+

@@ -64,24 +64,28 @@ public class subscriber {
     }
 
     public void showCurrentSubscriptions() {
-        System.out.println("Current Subscriptions:");
-        for (Map.Entry<String, String> entry : subscriptionDetails.entrySet()) {
-            System.out.println(entry.getValue());
+        System.out.println("当前订阅：");
+        if (subscriptionDetails.isEmpty()) {
+            System.out.println("没有活跃的订阅。");
+        } else {
+            for (Map.Entry<String, String> entry : subscriptionDetails.entrySet()) {
+                System.out.println(entry.getValue());
+            }
         }
     }
 
     public void unsubscribeTopic(String topicId) throws IOException {
-        System.out.println("Attempting to unsubscribe from topic: " + topicId);
+        System.out.println("正在尝试取消订阅主题：" + topicId);
         out.println("UNSUBSCRIBE_TOPIC");
         out.println(topicId);
         String response = waitForResponse();
-        System.out.println("Received response: " + response);
+        System.out.println("收到响应：" + response);
         if (response.equals("SUCCESS")) {
             subscriptions.remove(topicId);
             subscriptionDetails.remove(topicId);
-            System.out.println("Successfully unsubscribed from topic: " + topicId);
+            System.out.println("成功取消订阅主题：" + topicId);
         } else {
-            System.out.println("Failed to unsubscribe from topic: " + topicId + " - " + response);
+            System.out.println("取消订阅主题失败：" + topicId + " - " + response);
         }
     }
 
