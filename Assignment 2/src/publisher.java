@@ -51,13 +51,15 @@ public class publisher {
     }
 
     public void showSubscriberCount(String topicId) throws IOException {
+        System.out.println("Showing subscriber count for topic " + topicId);
         out.println("SHOW_SUBSCRIBER_COUNT");
         out.println(topicId);
         // System.out.println("Waiting for response...");
         
-        String response;
+        String response = in.readLine();
+        System.out.println("Received: " + response);
         while ((response = in.readLine()) != null) {
-            // System.out.println("Received: " + response);
+            
             if (response.equals("END")) {
                 break;
             }
