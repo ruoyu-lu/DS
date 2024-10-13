@@ -12,13 +12,19 @@
  -2024.10.17 实现了subscriber取消订阅功能，并确保broker间同步这些信息，使publisher能看到准确的订阅者数量
  -2024.10.21 优化了broker类结构,移除了冗余方法,简化了订阅和取消订阅的处理逻辑
  -2024.10.22 修复了安全漏洞,确保只有创建topic的publisher才能删除该topic
- -2024.10.23 修复了安全漏洞,确只有创建topic的publisher才能向该topic发布消息
+ -2024.10.23 修复了安全漏洞,确���有创建topic的publisher才能向该topic发布消息
  -2024.10.24 修复了创建和删除topic时的响应错乱问题，提高了系统的可靠性和用户体验
  -2024.10.25 实现了 publisher 和 subscriber 断开连接时的自动清理功能，包括删除相关 topics 和取消订阅
  -2024.10.26 更新了 publisher 和 subscriber 的启动方式，现在通过 Directory Service 获取 broker 信息
    - 修改了 publisher.java 和 subscriber.java 的 main 方法
    - 添加了从 Directory Service 获取 broker 信息的功能
    - 实现了连接失败时的重试机制
+ - 2024.10.27 实现了 broker 心跳机制和 DirectoryService 的超时检测
+   - 添加了 broker 向 DirectoryService 发送心跳的功能
+   - 在 DirectoryService 中实现了心跳接收和超时处理
+   - broker 每 5 秒发送一次心跳
+   - DirectoryService 每 15 秒检查一次 broker 的活跃状态
+   - 如果 broker 超过 15 秒没有发送心跳，会被从活跃列表中移除
 
 ## 开发阶段使用说明
 
@@ -73,3 +79,6 @@
 - 当 publisher 断开连接时，其创建的所有 topics 将被自动删除，相关的 subscribers 将收到通知。
 - 当 subscriber 断开连接时，其所有的订阅将被自动取消。
 - 确保在处理断开连接时，正确同步所有 brokers 的状态。
+- broker 现在会定期向 DirectoryService 发送心跳，确保其在活跃列表中保持更新状态。
+- DirectoryService 会定期检查 broker 的活跃状态，并移除超时的 broker。
+- 确保网络环境稳定，以防止由于网络问题导致的误判。

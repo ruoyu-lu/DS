@@ -10,6 +10,8 @@ import java.util.concurrent.*;
 public class broker {
     private static final int MAX_PUBLISHERS = 5;
     private static final int MAX_SUBSCRIBERS = 10;
+    private static final int HEARTBEAT_INTERVAL = 5; // 5 seconds
+    private static final String HEARTBEAT_MESSAGE = "HEARTBEAT";
 
     private String brokerIp;
     private int port;
@@ -22,6 +24,9 @@ public class broker {
     private Set<String> processedMessages = ConcurrentHashMap.newKeySet();
     private Set<Integer> queriedBrokers = new HashSet<>();
     private Map<String, CompletableFuture<Integer>> pendingSubscriberCountRequests = new ConcurrentHashMap<>();
+    private ScheduledExecutorService heartbeatExecutor;
+    private String directoryServiceIp;
+    private int directoryServicePort;
 
     private static class BrokerConnection {
         Socket socket;
@@ -44,6 +49,7 @@ public class broker {
         this.executorService = Executors.newFixedThreadPool(MAX_PUBLISHERS + MAX_SUBSCRIBERS);
         this.otherBrokers = new ConcurrentHashMap<>();
         this.connectionExecutor = Executors.newCachedThreadPool();
+        this.heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
     }
 
     // Start the broker
@@ -617,6 +623,8 @@ public class broker {
     }
 
     private void registerWithDirectoryService(String directoryServiceIp, int directoryServicePort) {
+        this.directoryServiceIp = directoryServiceIp;
+        this.directoryServicePort = directoryServicePort;
         try (Socket socket = new Socket(directoryServiceIp, directoryServicePort);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
@@ -632,6 +640,7 @@ public class broker {
                 if ("BROKER_LIST".equals(brokerList)) {
                     connectToOtherBrokers(in);
                 }
+                startHeartbeat(); // Start sending heartbeats after successful registration
             } else {
                 System.out.println("注册到 Directory Service 失败: " + response);
             }
@@ -653,5 +662,18 @@ public class broker {
                 }
             }
         }
+    }
+
+    private void startHeartbeat() {
+        heartbeatExecutor.scheduleAtFixedRate(() -> {
+            try (Socket socket = new Socket(directoryServiceIp, directoryServicePort);
+                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+                out.println(HEARTBEAT_MESSAGE);
+                out.println(this.brokerIp);
+                out.println(this.port);
+            } catch (IOException e) {
+                System.out.println("Failed to send heartbeat: " + e.getMessage());
+            }
+        }, 0, HEARTBEAT_INTERVAL, TimeUnit.SECONDS);
     }
 }
