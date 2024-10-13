@@ -118,23 +118,17 @@ public class subscriber {
             try {
                 String message;
                 while (isRunning && (message = in.readLine()) != null) {
-                    // check if the message is a time-stamped message
-                    if (message.matches("\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}.*")) {
+                    if (message.startsWith("SUCCESS") || message.startsWith("FAILED|") || message.startsWith("ERROR:") || message.equals("END")) {
+                        // Command responses and "END" are added to the messageQueue
+                        messageQueue.put(message);
+                    } else if (message.startsWith("TOPIC_DELETED|")) {
+                        // Handle topic deletion messages
+                        handleTopicDeleted(message);
+                    } else {
+                        // All other messages are considered published messages
                         System.out.println(message);
                     }
-                    if (message.startsWith("TOPIC_DELETED|")) {
-                        handleTopicDeleted(message);
-                    }else{
-                        messageQueue.put(message);
-                    }
                 }
-                // while (isRunning && (message = in.readLine()) != null) {
-                //     if (message.startsWith("TOPIC_DELETED|")) {
-                //         handleTopicDeleted(message);
-                //     } else {
-                //         messageQueue.put(message);
-                //     }
-                // }
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
@@ -270,18 +264,9 @@ public class subscriber {
             }
 
             // 处理接收到的消息
-            processReceivedMessages();
+
         }
         scanner.close();
     }
 
-    private void processReceivedMessages() {
-        List<String> messages = new ArrayList<>();
-        messageQueue.drainTo(messages);
-        for (String message : messages) {
-            if (!message.equals("SUCCESS") && !message.startsWith("[")) {
-                System.out.println(message);
-            }
-        }
-    }
 }
