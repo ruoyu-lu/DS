@@ -1,0 +1,45 @@
+@startuml
+!theme plain
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 20
+skinparam maxmessagesize 60
+
+actor Publisher as P
+actor Subscriber as S
+participant "Directory Service" as DS
+participant "Broker 1" as B1
+participant "Broker 2" as B2
+
+== Initialization ==
+B1 -> DS : Register
+B2 -> DS : Register
+DS --> B1 : Confirm registration
+DS --> B2 : Confirm registration
+
+== Publisher Operations ==
+P -> DS : Request broker list
+DS --> P : Return broker list
+P -> B1 : Connect
+P -> B1 : Create topic
+B1 -> B2 : Sync topic info
+P -> B1 : Publish message
+B1 -> B2 : Sync message
+
+== Subscriber Operations ==
+S -> DS : Request broker list
+DS --> S : Return broker list
+S -> B2 : Connect
+S -> B2 : Request topic list
+B2 --> S : Return topic list
+S -> B2 : Subscribe to topic
+B2 -> B1 : Sync subscription info
+B2 --> S : Send topic messages
+
+== Heartbeat Mechanism ==
+loop Periodically
+    B1 -> DS : Send heartbeat
+    B2 -> DS : Send heartbeat
+end
+
+@enduml
+

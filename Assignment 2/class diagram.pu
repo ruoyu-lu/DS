@@ -1,70 +1,74 @@
 @startuml
-class brokerNetwork {
-    - brokerID: int
-    - brokerName: String
-    - brokerLocation: String
-    - brokerIP: String
-    - brokerPort: String
-    - brokerStatus: String
-    - brokerType: String
-    - brokerVersion: String
-    {method} startBroker(): void
-    {method} stopBroker(): void
-    {method} restartBroker(): void
-    {method} showBrokerStatus(): String
-    {method} showBrokerInfo(): String
-    {method} showBrokerVersion(): String
-    {method} showBrokerLocation(): String
-    {method} showBrokerIP(): String
-    {method} showBrokerPort(): String
+
+skinparam classAttributeIconSize 0
+
+class DirectoryService {
+  - activeBrokers: List<BrokerInfo>
+  - lastHeartbeat: Map<String, Long>
+  + main(args: String[])
+  - handleClient(clientSocket: Socket)
+  - registerBroker(brokerInfo: String)
+  - getBrokerList(): String
+  - removeInactiveBrokers()
 }
 
-class publisher {
-    - publisherID: int
-    - publisherName: String
-    - publisherLocation: String
-    - publisherIP: String
-    - publisherPort: String
-    - publisherStatus: String
-    - publisherType: String
-    - publisherVersion: String
-    {method} createTopic(topicName: String): topic
-    {method} publishMessage(topicID: int, message: String): void
-    {method} showSubscriberCount(topicID: int): int
-    {method} deleteTopic(topicID: int): void
+class BrokerInfo {
+  - ip: String
+  - port: int
 }
 
-class subscriber {
-    - subscriberID: int
-    - subscriberName: String
-    - subscriberLocation: String
-    - subscriberIP: String
-    - subscriberPort: String
-    - subscriberStatus: String
-    - subscriberType: String
-    {method} listTopics(): List<topic>
-    {method} subscribe(topicID: int): void
-    {method} showCurrentSubscription(topicID: int): List<subscritions>
-    {method} unsubscribe(topicID: int): void
+class Broker {
+  - port: int
+  - topics: Map<String, Topic>
+  - otherBrokers: List<String>
+  - directoryServiceInfo: String
+  + main(args: String[])
+  - handleClient(clientSocket: Socket)
+  - handlePublisher(input: String, output: PrintWriter)
+  - handleSubscriber(input: String, output: PrintWriter)
+  - synchronizeWithOtherBrokers()
+  - sendHeartbeat()
 }
 
-class topic {
-    - topicID: int
-    - topicName: String
-    - topicOwner: publisher
+class Topic {
+  - id: String
+  - name: String
+  - publisher: String
+  - subscribers: Set<String>
+  + addSubscriber(subscriber: String)
+  + removeSubscriber(subscriber: String)
 }
 
-class messageHandler {
-    - messageID: int
-    - messageContent: String
-    - messageTimestamp: Date
-    - messageStatus: String
-    - messageType: String
-    - messageSender: publisher
-    - messageReceiver: subscriber
-    {method} sendMessage(message: String): void
-    {method} receiveMessage(message: String): void
-
+class Publisher {
+  - username: String
+  - brokerAddress: String
+  - brokerPort: int
+  + main(args: String[])
+  - connectToBroker()
+  - createTopic(topicName: String)
+  - deleteTopic(topicId: String)
+  - publishMessage(topicId: String, message: String)
+  - getBrokerInfo(directoryServiceInfo: String): List<String>
 }
+
+class Subscriber {
+  - username: String
+  - brokerAddress: String
+  - brokerPort: int
+  + main(args: String[])
+  - connectToBroker()
+  - listTopics()
+  - subscribeTopic(topicId: String)
+  - unsubscribeTopic(topicId: String)
+  - showCurrentSubscriptions()
+  - getBrokerInfo(directoryServiceInfo: String): List<String>
+}
+
+DirectoryService "1" -- "*" BrokerInfo : manages
+Broker "1" -- "*" Topic : manages
+Publisher "*" -- "1" Broker : connects to
+Subscriber "*" -- "1" Broker : connects to
+DirectoryService "1" -- "*" Broker : monitors
 
 @enduml
+

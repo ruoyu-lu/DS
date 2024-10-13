@@ -24,13 +24,15 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 
 public class DirectoryService {
-    private static final int PORT = 8000;
+    private final int port;
+    private final String ip;
     private static final int HEARTBEAT_TIMEOUT = 15; // 15 seconds
     private final Map<String, BrokerInfo> activeBrokers;
     private ServerSocket serverSocket;
@@ -38,7 +40,9 @@ public class DirectoryService {
     private final ScheduledExecutorService timeoutChecker;
     private final Map<String, Long> lastHeartbeatTimes;
 
-    public DirectoryService() {
+    public DirectoryService(String ip, int port) {
+        this.ip = ip;
+        this.port = port;
         this.activeBrokers = new ConcurrentHashMap<>();
         this.executorService = Executors.newCachedThreadPool();
         this.lastHeartbeatTimes = new ConcurrentHashMap<>();
@@ -48,7 +52,27 @@ public class DirectoryService {
 
     // Main method to run the DirectoryService
     public static void main(String[] args) {
-        DirectoryService directoryService = new DirectoryService();
+        if (args.length != 1) {
+            System.out.println("Usage: java -jar directoryservice.jar ip:port");
+            return;
+        }
+
+        String[] parts = args[0].split(":");
+        if (parts.length != 2) {
+            System.out.println("invalid ip:port format.");
+            return;
+        }
+
+        String ip = parts[0];
+        int port;
+        try {
+            port = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            System.out.println("invalid port number.");
+            return;
+        }
+
+        DirectoryService directoryService = new DirectoryService(ip, port);
         directoryService.start();
     }
 
@@ -73,14 +97,15 @@ public class DirectoryService {
 
     public void start() {
         try {
-            serverSocket = new ServerSocket(PORT);
-            System.out.println("Directory Service started on port " + PORT);
+            serverSocket = new ServerSocket(port, 50, InetAddress.getByName(ip));
+            System.out.println("Directory Service started on " + ip + ":" + port);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 executorService.submit(() -> handleClient(clientSocket));
             }
         } catch (IOException e) {
+            System.out.println("Error starting Directory Service: " + e.getMessage());
             e.printStackTrace();
         }
     }
