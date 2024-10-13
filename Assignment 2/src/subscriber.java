@@ -19,10 +19,15 @@
  * allowing them to manage their subscriptions and view incoming messages in real-time.
  */
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class subscriber {
     private String name;
@@ -293,8 +298,6 @@ public class subscriber {
             } catch (IOException e) {
                 System.out.println("Error: " + e.getMessage());
             }
-
-            // Handle received messages
 
         }
         scanner.close();

@@ -20,10 +20,15 @@
  * available Broker information and retries connections in case of failure.
  */
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.Scanner;
 
 public class publisher {
     private String name;
@@ -31,7 +36,6 @@ public class publisher {
     private PrintWriter out;
     private BufferedReader in;
     private static final int MAX_MESSAGE_LENGTH = 100;
-    private BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
     private static final int MAX_RETRY_ATTEMPTS = 3;
     private static final int RETRY_DELAY_MS = 5000;
 

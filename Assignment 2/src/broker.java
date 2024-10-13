@@ -2,27 +2,31 @@
  * File: broker.java
  * Author: Ruoyu Lu
  * Student ID: 1466195
- * 
- * Description: 
+ *
+ * Description:
  * This class represents a broker in the distributed publish-subscribe system.
  * It acts as an intermediary between publishers and subscribers, managing topics
  * and message distribution.
- * 
+ *
  * Main functionalities include:
  * 1. Handling connections from publishers and subscribers
  * 2. Managing topics and subscriptions
  * 3. Distributing messages from publishers to relevant subscribers
  * 4. Communicating with other brokers in the network
  * 5. Maintaining a heartbeat with the Directory Service
- * 
+ *
  * The broker supports operations such as creating topics, publishing messages,
  * subscribing to topics, and unsubscribing from topics. It also handles the
  * synchronization of topic and subscription information across the broker network.
  */
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.*;
-import java.net.*;
-import java.io.*;
 import java.util.concurrent.*;
 
 public class broker {
@@ -33,36 +37,22 @@ public class broker {
     private static final String HEARTBEAT_MESSAGE = "HEARTBEAT";
 
     // Broker identification and connection information
-    private String brokerIp;
-    private int port;
+    private final String brokerIp;
+    private final int port;
 
     // Data structures for managing topics, connections, and message processing
-    private Map<String, Topic> topics;
-    private Map<String, Socket> publisherSockets;
-    private Map<String, Socket> subscriberSockets;
-    private ExecutorService executorService;
-    private Map<Integer, BrokerConnection> otherBrokers;
-    private ExecutorService connectionExecutor;
-    private Set<String> processedMessages = ConcurrentHashMap.newKeySet();
-    private Set<Integer> queriedBrokers = new HashSet<>();
-    private Map<String, CompletableFuture<Integer>> pendingSubscriberCountRequests = new ConcurrentHashMap<>();
-    private ScheduledExecutorService heartbeatExecutor;
+    private final Map<String, Topic> topics;
+    private final Map<String, Socket> publisherSockets;
+    private final Map<String, Socket> subscriberSockets;
+    private final ExecutorService executorService;
+    private final Map<Integer, BrokerConnection> otherBrokers;
+    private final ExecutorService connectionExecutor;
+    private final Set<String> processedMessages = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> queriedBrokers = new HashSet<>();
+    private final Map<String, CompletableFuture<Integer>> pendingSubscriberCountRequests = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService heartbeatExecutor;
     private String directoryServiceIp;
     private int directoryServicePort;
-
-    // Inner class to represent a connection to another broker
-    private static class BrokerConnection {
-        Socket socket;
-        BufferedReader reader;
-        PrintWriter writer;
-
-        // Constructor for BrokerConnection
-        BrokerConnection(Socket socket) throws IOException {
-            this.socket = socket;
-            this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.writer = new PrintWriter(socket.getOutputStream(), true);
-        }
-    }
 
     // Constructor for the broker
     public broker(String brokerIp, int port) {
@@ -75,6 +65,33 @@ public class broker {
         this.otherBrokers = new ConcurrentHashMap<>();
         this.connectionExecutor = Executors.newCachedThreadPool();
         this.heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
+    }
+
+    // Main method to run the broker
+    public static void main(String[] args) {
+        if (args.length != 2) {
+            System.out.println("usage: java -jar broker.jar brokerIP:brokerPort directoryServiceIp:directoryServicePort");
+            return;
+        }
+
+        String[] brokerInfo = args[0].split(":");
+        String[] directoryServiceInfo = args[1].split(":");
+
+        if (brokerInfo.length != 2 || directoryServiceInfo.length != 2) {
+            System.out.println("Invalid parameter format. Please use IP:Port format.");
+            return;
+        }
+
+        String brokerIp = brokerInfo[0];
+        int brokerPort = Integer.parseInt(brokerInfo[1]);
+        String directoryServiceIp = directoryServiceInfo[0];
+        int directoryServicePort = Integer.parseInt(directoryServiceInfo[1]);
+
+        broker brokerInstance = new broker(brokerIp, brokerPort);
+        brokerInstance.registerWithDirectoryService(directoryServiceIp, directoryServicePort);
+
+        System.out.println("Broker is running, IP: " + brokerIp + ", Port: " + brokerPort);
+        brokerInstance.start();
     }
 
     // Start the broker
@@ -187,7 +204,7 @@ public class broker {
         String topicId = parts[1];
         int count = Integer.parseInt(parts[2]);
         String requestId = parts[3];
-    
+
         CompletableFuture<Integer> future = pendingSubscriberCountRequests.remove(requestId);
         if (future != null) {
             future.complete(count);
@@ -248,7 +265,7 @@ public class broker {
                         String message = reader.readLine();
                         publishMessage(msgTopicId, message, publisherName);
                         break;
-                        case "SHOW_SUBSCRIBER_COUNT":
+                    case "SHOW_SUBSCRIBER_COUNT":
                         System.out.println("Received SHOW_SUBSCRIBER_COUNT request from publisher: " + publisherName);
                         String showTopicId = reader.readLine();
                         System.out.println("Requested topic ID: " + showTopicId);
@@ -257,28 +274,28 @@ public class broker {
                             int totalCount = topic.subscribers.size();
                             System.out.println("Local subscriber count: " + totalCount);
                             System.out.println("Other broker count: " + otherBrokers.size());
-                    
+
                             List<CompletableFuture<Integer>> futures = new ArrayList<>();
-                    
+
                             for (Map.Entry<Integer, BrokerConnection> entry : otherBrokers.entrySet()) {
                                 int brokerPort = entry.getKey();
                                 BrokerConnection brokerConn = entry.getValue();
-                    
+
                                 String requestId = UUID.randomUUID().toString();
                                 CompletableFuture<Integer> future = new CompletableFuture<>();
                                 pendingSubscriberCountRequests.put(requestId, future);
-                    
+
                                 brokerConn.writer.println("GET_SUBSCRIBER_COUNT|" + showTopicId + "|" + requestId);
                                 futures.add(future);
                             }
-                    
+
                             // Wait for all futures to complete
                             try {
                                 CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(5, TimeUnit.SECONDS);
                             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                                 System.out.println("Error waiting for subscriber counts: " + e.getMessage());
                             }
-                    
+
                             for (CompletableFuture<Integer> future : futures) {
                                 try {
                                     totalCount += future.get();
@@ -286,7 +303,7 @@ public class broker {
                                     System.out.println("Error getting subscriber count from future: " + e.getMessage());
                                 }
                             }
-                    
+
                             response = showTopicId + "|" + topic.name + "|" + totalCount;
                             System.out.println("Sending response to publisher: " + response);
                             messageHandler.sendMessage(publisherSockets.get(publisherName), response);
@@ -325,18 +342,18 @@ public class broker {
                                     .append(topic.name).append("|")
                                     .append(topic.publisherName).append("\n");
                         }
-                        messageHandler.sendMessage(subscriberSockets.get(subscriberName), topicList.toString() + "END");
+                        messageHandler.sendMessage(subscriberSockets.get(subscriberName), topicList + "END");
                         break;
                     case "SUBSCRIBE_TOPIC":
                         String subTopicId = reader.readLine();
                         Topic topic = topics.get(subTopicId);
                         if (topic != null) {
                             topic.subscribers.add(subscriberName);
-                            messageHandler.sendMessage(subscriberSockets.get(subscriberName), 
-                                "SUCCESS|" + topic.name + "|" + topic.publisherName + "|" + subTopicId);
+                            messageHandler.sendMessage(subscriberSockets.get(subscriberName),
+                                    "SUCCESS|" + topic.name + "|" + topic.publisherName + "|" + subTopicId);
                         } else {
-                            messageHandler.sendMessage(subscriberSockets.get(subscriberName), 
-                                "FAILED|Topic not found");
+                            messageHandler.sendMessage(subscriberSockets.get(subscriberName),
+                                    "FAILED|Topic not found");
                         }
                         break;
                     case "UNSUBSCRIBE_TOPIC":
@@ -344,11 +361,11 @@ public class broker {
                         Topic unsubTopic = topics.get(unsubTopicId);
                         if (unsubTopic != null) {
                             boolean removed = unsubTopic.subscribers.remove(subscriberName);
-                            messageHandler.sendMessage(subscriberSockets.get(subscriberName), 
-                                removed ? "SUCCESS" : "FAILED|Not subscribed to this topic");
+                            messageHandler.sendMessage(subscriberSockets.get(subscriberName),
+                                    removed ? "SUCCESS" : "FAILED|Not subscribed to this topic");
                         } else {
-                            messageHandler.sendMessage(subscriberSockets.get(subscriberName), 
-                                "FAILED|Topic not found");
+                            messageHandler.sendMessage(subscriberSockets.get(subscriberName),
+                                    "FAILED|Topic not found");
                         }
                         break;
                 }
@@ -416,9 +433,9 @@ public class broker {
 
     public void showSubscriberCount(String topicId) {
         for (Map.Entry<Integer, BrokerConnection> entry : otherBrokers.entrySet()) {
-                BrokerConnection brokerConn = entry.getValue();
-                brokerConn.writer.println("SHOW_SUBSCRIBER_COUNT|" + topicId);
-            
+            BrokerConnection brokerConn = entry.getValue();
+            brokerConn.writer.println("SHOW_SUBSCRIBER_COUNT|" + topicId);
+
         }
     }
 
@@ -431,7 +448,7 @@ public class broker {
         if (!topic.publisherName.equals(publisherName)) {
             return "ERROR: You don't have permission to delete this topic";
         }
-        
+
         topics.remove(topicId);
         // Notify subscribers
         for (String subscriber : topic.subscribers) {
@@ -442,10 +459,10 @@ public class broker {
                 e.printStackTrace();
             }
         }
-        
+
         // Broadcast delete operation to other brokers
         handleTopicDeleteBroadcast(topicId);
-        
+
         return "SUCCESS: Topic deleted with ID: " + topicId;
     }
 
@@ -459,48 +476,6 @@ public class broker {
         }
     }
 
-    // Inner class to represent a Topic
-    public static class Topic {
-        String id;
-        String name;
-        String publisherName;
-        Set<String> subscribers;
-
-        Topic(String id, String name, String publisherName) {
-            this.id = id;
-            this.name = name;
-            this.publisherName = publisherName;
-            this.subscribers = new HashSet<>();
-        }
-    }
-
-    // Main method to run the broker
-    public static void main(String[] args) {
-        if (args.length != 2) {
-            System.out.println("usage: java -jar broker.jar brokerIP:brokerPort directoryServiceIp:directoryServicePort");
-            return;
-        }
-
-        String[] brokerInfo = args[0].split(":");
-        String[] directoryServiceInfo = args[1].split(":");
-
-        if (brokerInfo.length != 2 || directoryServiceInfo.length != 2) {
-            System.out.println("Invalid parameter format. Please use IP:Port format.");
-            return;
-        }
-
-        String brokerIp = brokerInfo[0];
-        int brokerPort = Integer.parseInt(brokerInfo[1]);
-        String directoryServiceIp = directoryServiceInfo[0];
-        int directoryServicePort = Integer.parseInt(directoryServiceInfo[1]);
-
-        broker brokerInstance = new broker(brokerIp, brokerPort);
-        brokerInstance.registerWithDirectoryService(directoryServiceIp, directoryServicePort);
-
-        System.out.println("Broker is running, IP: " + brokerIp + ", Port: " + brokerPort);
-        brokerInstance.start();
-    }
-
     public void connectToBroker(String brokerName, String ip, int port) {
         System.out.println("Try to connect to broker " + brokerName + " at " + ip + ":" + port);
         connectionExecutor.submit(() -> {
@@ -509,11 +484,11 @@ public class broker {
                     Socket socket = new Socket(ip, port);
                     PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                     BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    
+
                     // 发送 BROKER 标识和自己的端口号
                     out.println("BROKER");
                     out.println(this.port);
-                    
+
                     // 等待对方的确认
                     String response = in.readLine();
                     if ("BROKER_CONNECTED".equals(response)) {
@@ -525,7 +500,7 @@ public class broker {
                         for (Topic topic : topics.values()) {
                             brokerConn.writer.println("SYNC_TOPIC|" + topic.id + "|" + topic.name + "|" + topic.publisherName);
                         }
-                        
+
                         // start handling broker connection
                         new Thread(() -> {
                             try {
@@ -535,7 +510,7 @@ public class broker {
                                 e.printStackTrace();
                             }
                         }).start();
-                        
+
                         break;
                     } else {
                         System.out.println("connect broker " + brokerName + " failed: no expected response");
@@ -565,6 +540,7 @@ public class broker {
             }
         }
     }
+
     public void handleMessageBroadcast(String topicId, String message, String sourcePort, String messageId) {
         if (messageId == null) {
             messageId = UUID.randomUUID().toString();
@@ -616,7 +592,7 @@ public class broker {
     private void handlePublisherDisconnection(String publisherName) {
         System.out.println("Publisher disconnected: " + publisherName);
         publisherSockets.remove(publisherName);
-        
+
         // Remove all topics created by this publisher
         List<String> topicsToRemove = new ArrayList<>();
         for (Map.Entry<String, Topic> entry : topics.entrySet()) {
@@ -624,7 +600,7 @@ public class broker {
                 topicsToRemove.add(entry.getKey());
             }
         }
-        
+
         for (String topicId : topicsToRemove) {
             deleteTopic(topicId, publisherName);
         }
@@ -634,12 +610,12 @@ public class broker {
     private void handleSubscriberDisconnection(String subscriberName) {
         System.out.println("Subscriber disconnected: " + subscriberName);
         subscriberSockets.remove(subscriberName);
-        
+
         // Unsubscribe from all topics
         for (Topic topic : topics.values()) {
             topic.subscribers.remove(subscriberName);
         }
-        
+
         // Broadcast unsubscribe to other brokers
         for (BrokerConnection brokerConn : otherBrokers.values()) {
             try {
@@ -714,5 +690,34 @@ public class broker {
                 System.out.println("Failed to send heartbeat: " + e.getMessage());
             }
         }, 0, HEARTBEAT_INTERVAL, TimeUnit.SECONDS);
+    }
+
+    // Inner class to represent a connection to another broker
+    private static class BrokerConnection {
+        Socket socket;
+        BufferedReader reader;
+        PrintWriter writer;
+
+        // Constructor for BrokerConnection
+        BrokerConnection(Socket socket) throws IOException {
+            this.socket = socket;
+            this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.writer = new PrintWriter(socket.getOutputStream(), true);
+        }
+    }
+
+    // Inner class to represent a Topic
+    public static class Topic {
+        String id;
+        String name;
+        String publisherName;
+        Set<String> subscribers;
+
+        Topic(String id, String name, String publisherName) {
+            this.id = id;
+            this.name = name;
+            this.publisherName = publisherName;
+            this.subscribers = new HashSet<>();
+        }
     }
 }

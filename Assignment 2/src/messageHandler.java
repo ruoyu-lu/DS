@@ -15,8 +15,9 @@
  * handling logic.
  */
 
-import java.io.*;
-import java.net.*;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -35,11 +36,5 @@ public class messageHandler {
     public static void sendMessage(Socket socket, String message) throws IOException {
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         out.println(message);
-    }
-
-    // Placeholder for potential future methods
-    public static String receiveMessage(Socket socket) throws IOException {
-        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        return in.readLine();
     }
 }
